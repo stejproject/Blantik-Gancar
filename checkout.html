@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout</title>
+<style>
+:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --text:#e2e8f0; --muted:#94a3b8; }
+* { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+body { background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; padding:24px 16px; }
+.wrap { width:100%; max-width:480px; }
+header { text-align:center; margin-bottom:24px; }
+header img.logo { width:72px; height:72px; border-radius:16px; object-fit:cover; margin-bottom:12px; }
+h1 { font-size:1.4rem; margin-bottom:6px; }
+.sub { color:var(--muted); font-size:.85rem; }
+.card { background:var(--card); border:1px solid #334155; border-radius:14px; padding:20px; margin-bottom:16px; }
+.item-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px dashed #334155; }
+.item-row:last-child { border-bottom:none; }
+.item-name { font-weight:600; font-size:.95rem; }
+.item-price { color:var(--accent); font-weight:700; }
+h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:12px; }
+.bank { display:flex; gap:12px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:12px 14px; margin-bottom:10px; cursor:pointer; transition:border .15s; }
+.bank.selected { border-color:var(--accent); background:#14532d22; }
+.bank input { accent-color:var(--accent); width:16px; height:16px; }
+.bank .info { flex:1; }
+.bank .name { font-weight:600; font-size:.9rem; display:block; }
+.bank .number { font-size:.8rem; color:var(--muted); font-family:monospace; letter-spacing:1px; }
+.bank .copy { font-size:.7rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:5px 10px; cursor:pointer; }
+.bank.offline { opacity:.45; pointer-events:none; }
+.badge-off { background:#7f1d1d; color:#fecaca; font-size:.6rem; padding:2px 8px; border-radius:99px; margin-left:8px; vertical-align:middle; }
+label { display:block; font-size:.75rem; color:var(--muted); margin:12px 0 5px; }
+input, select, textarea { width:100%; background:#0f172a; border:1px solid #334155; color:var(--text); padding:11px 12px; border-radius:9px; font-size:.9rem; }
+input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); }
+button.primary { width:100%; background:var(--accent); color:#052e16; font-weight:700; border:none; padding:13px; border-radius:10px; font-size:.95rem; cursor:pointer; margin-top:16px; }
+button.primary:disabled { opacity:.5; cursor:not-allowed; }
+.status { display:none; text-align:center; padding:14px; border-radius:10px; font-size:.85rem; margin-top:14px; }
+.status.pending { display:block; background:#713f12; color:#fde68a; }
+.status.approved { display:block; background:#14532d; color:#86efac; }
+.status.rejected { display:block; background:#7f1d1d; color:#fecaca; }
+.qris-img { max-width:220px; width:100%; border-radius:10px; display:block; margin:10px auto; background:#fff; padding:8px; }
+footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
+.notice { display:none; background:#713f1222; border:1px solid #a16207; color:#fbbf24; font-size:.8rem; padding:10px 12px; border-radius:8px; margin-bottom:12px; }
+</style>
+<base target="_blank">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img class="logo" id="page-logo" style="display:none" alt="">
+    <h1 id="page-title">Checkout</h1>
+    <p class="sub" id="page-sub">Silakan selesaikan pembayaran Anda</p>
+  </header>
+
+  <div class="card" id="order-card">
+    <h2>Ringkasan Pesanan</h2>
+    <div class="item-row"><span class="item-name" id="item-name">Memuat...</span><span class="item-price" id="item-price"></span></div>
+    <div class="item-row" id="fee-row" style="display:none"><span class="item-name">Biaya Layanan</span><span class="item-price" id="item-fee"></span></div>
+    <div class="item-row"><span class="item-name" style="font-weight:700">Total</span><span class="item-price" id="item-total" style="font-size:1.05rem"></span></div>
+  </div>
+
+  <div class="notice" id="notice-all-offline"></div>
+
+  <div class="card" id="method-card">
+    <h2>Metode Pembayaran</h2>
+    <div id="bank-list"><p style="color:var(--muted);font-size:.85rem">Memuat rekening...</p></div>
+    <div id="qris-block" style="display:none">
+      <label>QRIS</label>
+      <img class="qris-img" id="qris-img" alt="QRIS">
+      <p style="font-size:.75rem;color:var(--muted);text-align:center">Scan dengan aplikasi e-wallet / m-banking apa pun</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Konfirmasi Pembayaran</h2>
+    <label>Nama Pengirim (sesuai rekening)</label>
+    <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
+    <label>Nominal Transfer (Rp)</label>
+    <input type="text" id="f-nominal" placeholder="150.000">
+    <label>Metode Pembayaran</label>
+    <select id="f-metode"><option value="">— pilih —</option></select>
+    <label>Bukti Transfer (foto)</label>
+    <input type="file" id="f-bukti" accept="image/*">
+    <img id="f-bukti-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:8px" alt="">
+    <label>Catatan (opsional)</label>
+    <textarea id="f-catatan" rows="2"></textarea>
+    <button class="primary" id="btn-submit" disabled>📤 Kirim Konfirmasi Pembayaran</button>
+    <div class="status" id="pay-status"></div>
+  </div>
+
+  <footer id="page-footer">© 2026</footer>
+</div>
+
+<script type="module">
+// ============ KONFIGURASI FIREBASE ANDA ============
+// Ganti dengan config project Firebase BARU Anda (lihat panduan di README_Setup.txt)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "MASUKKAN_API_KEY_ANDA",
+  authDomain: "MASUKKAN_PROJECT_ID_ANDA.firebaseapp.com",
+  projectId: "MASUKKAN_PROJECT_ID_ANDA",
+  storageBucket: "MASUKKAN_PROJECT_ID_ANDA.appspot.com",
+  messagingSenderId: "MASUKKAN_SENDER_ID",
+  appId: "MASUKKAN_APP_ID"
+};
+// ===================================================
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// Parameter URL: ?item=nama_produk&price=150000
+const params = new URLSearchParams(location.search);
+const itemName  = params.get("item")  || "Produk / Layanan";
+const itemPrice = parseInt(params.get("price") || "0", 10);
+let fee = 0;
+
+let settings = { title:"Checkout", sub:"", logo:"", qris:"", banks:[], showQrisFallback:true, footer:"" };
+let settingsLoaded = false, itemLoaded = false;
+
+function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
+
+// ---------- Muat settings halaman (realtime) ----------
+onSnapshot(doc(db, "checkout_settings", "main"), snap => {
+  if (!snap.exists()) return;
+  settings = { ...settings, ...snap.data() };
+  settingsLoaded = true;
+  applySettings();
+}, err => console.error("settings error:", err.message));
+
+// ---------- Muat item dari Firestore jika ada parameter ?id= ----------
+async function loadItem() {
+  const id = params.get("id");
+  if (!id) {
+    document.getElementById("item-name").textContent  = itemName;
+    document.getElementById("item-price").textContent = fmt(itemPrice);
+    document.getElementById("item-total").textContent = fmt(itemPrice);
+    itemLoaded = true; maybeEnableSubmit();
+    return;
+  }
+  try {
+    const snap = await getDoc(doc(db, "items", id));
+    if (snap.exists()) {
+      const it = snap.data();
+      document.getElementById("item-name").textContent  = it.name  || "Item";
+      if (it.fee) {
+        fee = Number(it.fee)||0;
+        document.getElementById("fee-row").style.display = "flex";
+        document.getElementById("item-fee").textContent = fmt(fee);
+      }
+      document.getElementById("item-price").textContent = fmt(it.price);
+      document.getElementById("item-total").textContent = fmt((Number(it.price)||0) + fee);
+    }
+  } catch(e) { console.error(e.message); }
+  itemLoaded = true; maybeEnableSubmit();
+}
+loadItem();
+
+function applySettings() {
+  if (settings.title) { document.title = settings.title; document.getElementById("page-title").textContent = settings.title; }
+  if (settings.sub)   document.getElementById("page-sub").textContent = settings.sub;
+  if (settings.logo)  { const l = document.getElementById("page-logo"); l.src = settings.logo; l.style.display = "block"; }
+  if (settings.footer) document.getElementById("page-footer").textContent = settings.footer;
+
+  const list = document.getElementById("bank-list");
+  list.innerHTML = "";
+  const select = document.getElementById("f-metode");
+  select.innerHTML = '<option value="">— pilih —</option>';
+
+  const activeBanks = (settings.banks || []).filter(b => b.active !== false);
+  activeBanks.forEach((b, i) => {
+    const div = document.createElement("div");
+    div.className = "bank";
+    div.innerHTML = `
+      <input type="radio" name="bank" value="${b.code}" id="b${i}" ${i===0?"checked":""}>
+      <label class="info" for="b${i}" style="cursor:pointer">
+        <span class="name">${b.bank} <span style="color:var(--muted);font-weight:400;font-size:.75rem">a.n. ${b.holder||"-"}</span></span>
+        <span class="number">${b.number}</span>
+      </label>
+      <button class="copy" data-num="${b.number}">Salin</button>`;
+    list.appendChild(div);
+    const opt = document.createElement("option"); opt.value = b.bank; opt.textContent = b.bank; select.appendChild(opt);
+  });
+
+  const qrisBlock = document.getElementById("qris-block");
+  if (settings.qris && (settings.showQrisFallback || activeBanks.length === 0)) {
+    document.getElementById("qris-img").src = settings.qris;
+    qrisBlock.style.display = "block";
+    if (settings.qris && !activeBanks.some(b=>b.code==="qris")) {
+      const opt = document.createElement("option"); opt.value = "QRIS"; opt.textContent = "QRIS"; select.appendChild(opt);
+    }
+  } else qrisBlock.style.display = "none";
+
+  if (activeBanks.length === 0) {
+    document.getElementById("notice-all-offline").textContent = "⚠️ Transfer bank sedang tidak tersedia. Silakan gunakan QRIS.";
+    document.getElementById("notice-all-offline").style.display = "block";
+  }
+  maybeEnableSubmit();
+}
+
+// ---------- Salin nomor rekening ----------
+document.getElementById("bank-list").addEventListener("click", e => {
+  const btn = e.target.closest(".copy");
+  if (btn) {
+    navigator.clipboard.writeText(btn.dataset.num).then(() => { btn.textContent = "✓"; setTimeout(()=>btn.textContent="Salin", 1500); });
+  }
+});
+
+// ---------- Bukti preview ----------
+document.getElementById("f-bukti").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (f.size > 800*1024) { alert("Maksimal 800KB"); e.target.value=""; return; }
+  const r = new FileReader();
+  r.onload = ev => { const img = document.getElementById("f-bukti-preview"); img.src = ev.target.result; img.style.display = "block"; };
+  r.readAsDataURL(f);
+});
+
+function maybeEnableSubmit() {
+  document.getElementById("btn-submit").disabled = !(settingsLoaded && itemLoaded);
+}
+
+// ---------- Kirim konfirmasi ----------
+document.getElementById("btn-submit").addEventListener("click", async () => {
+  const nama   = document.getElementById("f-nama").value.trim();
+  const nominal= document.getElementById("f-nominal").value.replace(/[^0-9]/g,"");
+  const metode = document.getElementById("f-metode").value;
+  const catatan= document.getElementById("f-catatan").value.trim();
+  const file   = document.getElementById("f-bukti").files[0];
+
+  if (!nama || !nominal || !metode) { alert("Nama pengirim, nominal, dan metode wajib diisi!"); return; }
+
+  const btn = document.getElementById("btn-submit");
+  btn.disabled = true; btn.textContent = "Mengirim...";
+
+  let buktiBase64 = null;
+  if (file) {
+    buktiBase64 = await new Promise(res => {
+      const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file);
+    });
+  }
+
+  try {
+    const ref = await addDoc(collection(db, "payments"), {
+      item: itemName, price: itemPrice, fee,
+      total: itemPrice + fee,
+      senderName: nama, nominal: Number(nominal), method: metode,
+      note: catatan, proofBase64: buktiBase64,
+      status: "pending", createdAt: new Date().toISOString()
+    });
+    alert("Konfirmasi terkirim! Tunggu verifikasi admin.");
+    watchStatus(ref.id);
+  } catch(e) {
+    alert("Gagal mengirim: " + e.message);
+    btn.disabled = false; btn.textContent = "📤 Kirim Konfirmasi Pembayaran";
+  }
+});
+
+// ---------- Pantau status pembayaran (realtime) ----------
+function watchStatus(paymentId) {
+  onSnapshot(doc(db, "payments", paymentId), snap => {
+    if (!snap.exists()) return;
+    const p = snap.data();
+    const el = document.getElementById("pay-status");
+    el.className = "status " + p.status;
+    if (p.status === "pending")   el.textContent = "⏳ Pembayaran Anda sedang diverifikasi admin.";
+    if (p.status === "approved")  { el.textContent = "✅ PEMBAYARAN DISETUJUI. Terima kasih!"; document.getElementById("btn-submit").style.display = "none"; }
+    if (p.status === "rejected")  { el.textContent = "❌ Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti."; document.getElementById("btn-submit").disabled = false; document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi"; }
+  });
+}
+</script>
+</body>
+</html>

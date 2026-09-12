@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Checkout</title>
+<style>
+:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --text:#e2e8f0; --muted:#94a3b8; }
+* { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+body { background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; padding:24px 16px; }
+.wrap { width:100%; max-width:760px; }
+h1 { font-size:1.3rem; margin-bottom:4px; }
+h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:18px 0 10px; }
+.sub { color:var(--muted); font-size:.8rem; margin-bottom:20px; }
+.card { background:var(--card); border:1px solid #334155; border-radius:14px; padding:20px; margin-bottom:16px; }
+label { display:block; font-size:.72rem; color:var(--muted); margin:10px 0 4px; }
+input, select, textarea { width:100%; background:#0f172a; border:1px solid #334155; color:var(--text); padding:10px 12px; border-radius:8px; font-size:.85rem; }
+input:focus { outline:none; border-color:var(--accent); }
+button { background:var(--accent); color:#052e16; border:none; padding:10px 18px; border-radius:8px; font-weight:700; font-size:.85rem; cursor:pointer; }
+button.gray { background:#334155; color:var(--text); }
+button.red { background:#dc2626; color:#fff; }
+button.sm { padding:5px 10px; font-size:.72rem; }
+table { width:100%; border-collapse:collapse; font-size:.8rem; margin-top:10px; }
+th { text-align:left; color:var(--muted); font-size:.68rem; padding:8px 6px; border-bottom:1px solid #334155; }
+td { padding:10px 6px; border-bottom:1px solid #1e293b; vertical-align:top; }
+.badge { display:inline-block; font-size:.65rem; font-weight:700; padding:3px 9px; border-radius:99px; }
+.badge.pending  { background:#713f12; color:#fde68a; }
+.badge.approved { background:#14532d; color:#86efac; }
+.badge.rejected { background:#7f1d1d; color:#fecaca; }
+.badge.on  { background:#14532d; color:#86efac; }
+.badge.off { background:#334155; color:#94a3b8; }
+.bank-row { display:flex; gap:8px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px 12px; margin-bottom:8px; flex-wrap:wrap; }
+.bank-row .grow { flex:1; min-width:150px; }
+.bank-row .grow b { display:block; font-size:.85rem; }
+.bank-row .grow small { color:var(--muted); font-family:monospace; }
+.user { display:flex; align-items:center; gap:10px; margin-bottom:14px; font-size:.85rem; }
+.user img { width:32px; height:32px; border-radius:50%; }
+.tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
+.tabs button { background:#1e293b; color:var(--text); border:1px solid #334155; }
+.tabs button.active { background:var(--accent); color:#052e16; border-color:var(--accent); }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
+.toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--accent); color:#052e16; padding:10px 20px; border-radius:99px; font-size:.8rem; font-weight:700; display:none; z-index:99; }
+</style>
+<base target="_blank">
+</head>
+<body>
+<div class="wrap">
+  <h1>⚙️ Admin Checkout</h1>
+  <p class="sub">Kelola halaman checkout, rekening bank, dan verifikasi pembayaran</p>
+
+  <!-- LOGIN -->
+  <div class="card" id="login-card">
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:14px">Login dengan Google (akun yang Anda daftarkan di Firebase Authentication)</p>
+    <button onclick="login()">🔑 Login dengan Google</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dash" style="display:none">
+    <div class="card">
+      <div class="user">
+        <img id="u-img" src="" alt="">
+        <span id="u-name"></span>
+        <button class="gray sm" style="margin-left:auto" onclick="logout()">Logout</button>
+      </div>
+      <div class="tabs">
+        <button class="active" data-tab="pay" onclick="showTab('pay',this)">💳 Pembayaran</button>
+        <button data-tab="bank" onclick="showTab('bank',this)">🏦 Rekening</button>
+        <button data-tab="page" onclick="showTab('page',this)">🎨 Halaman</button>
+        <button data-tab="item" onclick="showTab('item',this)">📦 Item / Produk</button>
+      </div>
+
+      <!-- TAB: PEMBAYARAN -->
+      <div id="tab-pay">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button class="gray sm" onclick="loadPayments('all')">Semua</button>
+          <button class="gray sm" onclick="loadPayments('pending')">⏳ Pending</button>
+          <button class="gray sm" onclick="loadPayments('approved')">✅ Approved</button>
+          <button class="gray sm" onclick="loadPayments('rejected')">❌ Rejected</button>
+        </div>
+        <table>
+          <thead><tr><th>Pelanggan</th><th>Item</th><th>Nominal</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody id="pay-body"><tr><td colspan="5" style="color:var(--muted)">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- TAB: REKENING -->
+      <div id="tab-bank" style="display:none">
+        <h2>Daftar Rekening</h2>
+        <div id="bank-list"></div>
+        <h2>Tambah / Edit Rekening</h2>
+        <input type="hidden" id="bank-edit-id">
+        <div class="row2">
+          <div><label>Bank</label><input id="bank-bank" placeholder="BCA / Mandiri / BRI / BNI / CIMB / DANA / ..."></div>
+          <div><label>Kode (unik)</label><input id="bank-code" placeholder="bca"></div>
+        </div>
+        <div class="row2">
+          <div><label>Nomor Rekening</label><input id="bank-number" placeholder="1234567890"></div>
+          <div><label>Atas Nama</label><input id="bank-holder" placeholder="Budi Santoso"></div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button onclick="saveBank()">💾 Simpan Rekening</button>
+          <button class="gray" onclick="clearBankForm()">Bersihkan</button>
+        </div>
+      </div>
+
+      <!-- TAB: HALAMAN -->
+      <div id="tab-page" style="display:none">
+        <h2>Pengaturan Halaman Checkout</h2>
+        <label>Judul Halaman</label><input id="set-title" placeholder="Checkout Toko Saya">
+        <label>Sub-judul</label><input id="set-sub" placeholder="Silakan selesaikan pembayaran Anda">
+        <label>URL Logo (opsional)</label><input id="set-logo" placeholder="https://...">
+        <label>URL Gambar QRIS (opsional)</label><input id="set-qris" placeholder="https://...">
+        <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+          <input type="checkbox" id="set-qris-fallback" style="width:auto">
+          <label style="margin:0" for="set-qris-fallback">Selalu tampilkan QRIS sebagai opsi pembayaran</label>
+        </div>
+        <label>Teks Footer</label><input id="set-footer" placeholder="© 2026 Toko Saya">
+        <button style="margin-top:14px" onclick="saveSettings()">💾 Simpan Pengaturan</button>
+      </div>
+
+      <!-- TAB: ITEM -->
+      <div id="tab-item" style="display:none">
+        <h2>Daftar Item / Produk</h2>
+        <div id="item-list"></div>
+        <h2>Tambah Item</h2>
+        <div class="row2">
+          <div><label>Nama Item</label><input id="it-name" placeholder="Landing Page Premium"></div>
+          <div><label>Harga (Rp)</label><input id="it-price" type="number" placeholder="150000"></div>
+        </div>
+        <label>Biaya Layanan (Rp, opsional)</label><input id="it-fee" type="number" placeholder="0">
+        <div style="margin-top:12px"><button onclick="saveItem()">➕ Tambah Item</button></div>
+        <p style="font-size:.72rem;color:var(--muted);margin-top:12px" id="item-links"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast">Tersimpan ✓</div>
+
+<script type="module">
+// ============ KONFIGURASI FIREBASE ANDA (sama dengan checkout.html) ============
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "MASUKKAN_API_KEY_ANDA",
+  authDomain: "MASUKKAN_PROJECT_ID_ANDA.firebaseapp.com",
+  projectId: "MASUKKAN_PROJECT_ID_ANDA",
+  storageBucket: "MASUKKAN_PROJECT_ID_ANDA.appspot.com",
+  messagingSenderId: "MASUKKAN_SENDER_ID",
+  appId: "MASUKKAN_APP_ID"
+};
+// ==============================================================================
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let user = null;
+
+window.login = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert("Login gagal: " + e.message));
+window.logout = () => signOut(auth);
+
+onAuthStateChanged(auth, u => {
+  user = u;
+  document.getElementById("login-card").style.display = u ? "none" : "block";
+  document.getElementById("dash").style.display = u ? "block" : "none";
+  if (u) {
+    document.getElementById("u-img").src = u.photoURL || "";
+    document.getElementById("u-name").textContent = u.displayName || u.email;
+    init();
+  }
+});
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 1800);
+}
+
+// ---------- Tabs ----------
+window.showTab = (id, btn) => {
+  ["pay","bank","page","item"].forEach(t => document.getElementById("tab-"+t).style.display = t===id ? "block":"none");
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+};
+
+let paymentsUnsub = null;
+function init() {
+  loadSettings();
+  loadBanks();
+  loadItems();
+  loadPayments("pending");
+}
+
+// ---------- Pembayaran ----------
+window.loadPayments = (filter) => {
+  if (paymentsUnsub) paymentsUnsub();
+  const q = query(collection(db, "payments"), orderBy("createdAt", "desc"));
+  paymentsUnsub = onSnapshot(q, snap => {
+    const rows = [];
+    snap.forEach(s => {
+      const p = { id: s.id, ...s.data() };
+      if (filter !== "all" && p.status !== filter) return;
+      rows.push(`<tr>
+        <td><b>${esc(p.senderName)}</b><br><small style="color:var(--muted)">${esc(p.method)}</small></td>
+        <td>${esc(p.item)}<br><small style="color:var(--muted)">total: Rp ${(p.total||p.price||0).toLocaleString("id-ID")}</small></td>
+        <td>Rp ${Number(p.nominal||0).toLocaleString("id-ID")}</td>
+        <td><span class="badge ${p.status}">${p.status}</span></td>
+        <td>
+          ${p.proofBase64 ? `<a href="${p.proofBase64}" target="_blank"><img class="proof" src="${p.proofBase64}"></a><br>` : ""}
+          ${p.status === "pending" ? `
+            <button class="sm" onclick="approvePay('${p.id}')">✅ Setujui</button>
+            <button class="red sm" onclick="rejectPay('${p.id}')">❌ Tolak</button>` : ""}
+          <button class="gray sm" onclick="deletePay('${p.id}')">🗑</button>
+        </td></tr>`);
+    });
+    document.getElementById("pay-body").innerHTML = rows.length ? rows.join("") :
+      '<tr><td colspan="5" style="color:var(--muted)">Tidak ada data</td></tr>';
+  });
+};
+window.approvePay = async id => { await updateDoc(doc(db,"payments",id), { status:"approved", verifiedAt:new Date().toISOString() }); toast("Disetujui ✓"); };
+window.rejectPay  = async id => {
+  const r = prompt("Alasan penolakan (opsional):") || "";
+  await updateDoc(doc(db,"payments",id), { status:"rejected", rejectReason:r, verifiedAt:new Date().toISOString() });
+  toast("Ditolak");
+};
+window.deletePay  = async id => { if (confirm("Hapus data pembayaran ini?")) { await deleteDoc(doc(db,"payments",id)); toast("Dihapus"); } };
+
+// ---------- Rekening ----------
+function loadBanks() {
+  onSnapshot(doc(db, "checkout_settings", "main"), snap => {
+    if (!snap.exists()) return;
+    const banks = snap.data().banks || [];
+    document.getElementById("bank-list").innerHTML = banks.length ? banks.map(b => `
+      <div class="bank-row">
+        <div class="grow"><b>${esc(b.bank)} <span class="badge ${b.active!==false?"on":"off"}">${b.active!==false?"AKTIF":"NONAKTIF"}</span></b>
+        <small>${esc(b.number)} — a.n. ${esc(b.holder||"-")}</small></div>
+        <button class="gray sm" onclick="toggleBank('${b.code}')">${b.active!==false?"Matikan":"Aktifkan"}</button>
+        <button class="gray sm" onclick="editBank('${b.code}')">✎</button>
+        <button class="red sm" onclick="deleteBank('${b.code}')">🗑</button>
+      </div>`).join("") : '<p style="color:var(--muted);font-size:.85rem">Belum ada rekening. Tambahkan di bawah.</p>';
+  });
+}
+window.saveBank = async () => {
+  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const banks = (snap.exists() && snap.data().banks) || [];
+  const code = document.getElementById("bank-code").value.trim().toLowerCase();
+  const data = {
+    bank: document.getElementById("bank-bank").value.trim(),
+    number: document.getElementById("bank-number").value.trim(),
+    holder: document.getElementById("bank-holder").value.trim(),
+    active: true
+  };
+  if (!data.bank || !code || !data.number) { alert("Bank, kode, dan nomor wajib diisi!"); return; }
+  const idx = banks.findIndex(b => b.code === code);
+  if (idx >= 0) banks[idx] = { ...banks[idx], ...data }; else banks.push({ code, ...data });
+  await setDoc(doc(db, "checkout_settings", "main"), { banks }, { merge: true });
+  clearBankForm(); toast("Rekening tersimpan ✓");
+};
+window.toggleBank = async code => {
+  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const banks = snap.data().banks || [];
+  const b = banks.find(x => x.code === code);
+  if (b) { b.active = b.active === false ? true : false; await setDoc(doc(db,"checkout_settings","main"), { banks }, { merge: true }); }
+};
+window.editBank = async code => {
+  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const b = (snap.data().banks || []).find(x => x.code === code);
+  if (!b) return;
+  document.getElementById("bank-edit-id").value = code;
+  document.getElementById("bank-code").value = b.code;
+  document.getElementById("bank-bank").value = b.bank;
+  document.getElementById("bank-number").value = b.number;
+  document.getElementById("bank-holder").value = b.holder || "";
+};
+window.deleteBank = async code => {
+  if (!confirm("Hapus rekening ini?")) return;
+  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const banks = (snap.data().banks || []).filter(b => b.code !== code);
+  await setDoc(doc(db, "checkout_settings", "main"), { banks }, { merge: true });
+  toast("Rekening dihapus");
+};
+window.clearBankForm = () => ["bank-edit-id","bank-code","bank-bank","bank-number","bank-holder"].forEach(id => document.getElementById(id).value = "");
+
+// ---------- Pengaturan halaman ----------
+function loadSettings() {
+  onSnapshot(doc(db, "checkout_settings", "main"), snap => {
+    if (!snap.exists()) return;
+    const s = snap.data();
+    document.getElementById("set-title").value = s.title || "";
+    document.getElementById("set-sub").value = s.sub || "";
+    document.getElementById("set-logo").value = s.logo || "";
+    document.getElementById("set-qris").value = s.qris || "";
+    document.getElementById("set-qris-fallback").checked = !!s.showQrisFallback;
+    document.getElementById("set-footer").value = s.footer || "";
+  });
+}
+window.saveSettings = async () => {
+  await setDoc(doc(db, "checkout_settings", "main"), {
+    title: document.getElementById("set-title").value.trim(),
+    sub: document.getElementById("set-sub").value.trim(),
+    logo: document.getElementById("set-logo").value.trim(),
+    qris: document.getElementById("set-qris").value.trim(),
+    showQrisFallback: document.getElementById("set-qris-fallback").checked,
+    footer: document.getElementById("set-footer").value.trim()
+  }, { merge: true });
+  toast("Pengaturan tersimpan ✓");
+};
+
+// ---------- Item ----------
+let itemsCache = [];
+function loadItems() {
+  onSnapshot(collection(db, "items"), snap => {
+    itemsCache = [];
+    snap.forEach(s => itemsCache.push({ id: s.id, ...s.data() }));
+    document.getElementById("item-list").innerHTML = itemsCache.length ? itemsCache.map(it => `
+      <div class="bank-row">
+        <div class="grow"><b>${esc(it.name)}</b><small>Rp ${Number(it.price||0).toLocaleString("id-ID")}${it.fee ? " + fee " + Number(it.fee).toLocaleString("id-ID") : ""}</small></div>
+        <button class="red sm" onclick="deleteItem('${it.id}')">🗑</button>
+      </div>`).join("") : '<p style="color:var(--muted);font-size:.85rem">Belum ada item.</p>';
+    document.getElementById("item-links").innerHTML = itemsCache.length ?
+      "Link checkout:<br>" + itemsCache.map(it =>
+        `<a style="color:var(--accent)" target="_blank" href="checkout.html?id=${it.id}">checkout.html?id=${it.id}</a> (${esc(it.name)})`).join("<br>") : "";
+  });
+}
+window.saveItem = async () => {
+  const name = document.getElementById("it-name").value.trim();
+  const price = Number(document.getElementById("it-price").value || 0);
+  const fee = Number(document.getElementById("it-fee").value || 0);
+  if (!name || !price) { alert("Nama dan harga wajib diisi!"); return; }
+  await addDoc(collection(db, "items"), { name, price, fee, createdAt: new Date().toISOString() });
+  document.getElementById("it-name").value = ""; document.getElementById("it-price").value = ""; document.getElementById("it-fee").value = "";
+  toast("Item ditambah ✓");
+};
+window.deleteItem = async id => { if (confirm("Hapus item?")) await deleteDoc(doc(db, "items", id)); };
+
+function esc(t) { const d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+</script>
+</body>
+</html>

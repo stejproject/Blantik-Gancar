@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Toko — Multi-Tenant Checkout</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121820;
+    --panel-2: #1a2230;
+    --border: #232d3a;
+    --accent: #00d9a3;
+    --accent-dim: #0a3d33;
+    --text: #e6edf3;
+    --text-dim: #7d8b9a;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 80px;
+  }
+  .wrap { width: 100%; max-width: 520px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; letter-spacing: -0.3px; }
+  .sub { color: var(--text-dim); font-size: 0.82rem; margin: 0 0 22px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel h2 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  label { display: block; font-size: 0.78rem; color: var(--text-dim); margin: 12px 0 5px; }
+  label:first-of-type { margin-top: 0; }
+  input, textarea {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-family: inherit;
+  }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: #04241c;
+    border: none;
+    padding: 11px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 14px;
+  }
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 500;
+  }
+  button.danger-outline {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    font-weight: 600;
+    padding: 6px 10px;
+    width: auto;
+    margin: 0;
+    font-size: 0.75rem;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .item-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .item-card .name { font-weight: 600; font-size: 0.9rem; }
+  .item-card .price { color: var(--accent); font-size: 0.85rem; margin-top: 2px; }
+  .item-card .tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+  .empty { color: var(--text-dim); font-size: 0.82rem; text-align: center; padding: 16px 0; }
+  .link-box {
+    background: var(--panel-2);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.78rem;
+    color: var(--accent);
+    word-break: break-all;
+    margin-top: 8px;
+  }
+  .hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 6px; line-height: 1.5; }
+  .status-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+  .dot.on { background: var(--accent); }
+  #app { display: none; }
+  #loginBox { text-align: center; padding: 60px 0; }
+  .toggle-row { display: flex; gap: 6px; margin-bottom: 12px; }
+  .toggle-row button {
+    margin: 0;
+    padding: 7px 10px;
+    font-size: 0.72rem;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .toggle-row button.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>🏪 Dashboard Toko</h1>
+  <p class="sub">Kelola katalog & cara terima pembayaran tokomu.</p>
+
+  <div id="loginBox">
+    <button id="btnLogin" style="max-width:260px;margin:0 auto;">Login dengan Google</button>
+  </div>
+
+  <div id="app">
+
+    <div class="panel">
+      <h2>Profil Toko</h2>
+      <div id="userLine" class="status-line"></div>
+      <label>Nama Toko</label>
+      <input id="storeName" placeholder="Contoh: Toko STEJ">
+      <label>Info Rekening (ditampilkan ke customer, opsional)</label>
+      <input id="storeBankDisplay" placeholder="Contoh: BCA a.n. Toko STEJ - 1234567890">
+      <button id="btnSaveStore">💾 Simpan Profil Toko</button>
+      <div class="hint">Link storefront publikmu (bagikan ke customer):</div>
+      <div class="link-box" id="storefrontLink">—</div>
+    </div>
+
+    <div class="panel">
+      <h2>Koneksi Pembayaran Otomatis (opsional)</h2>
+      <p class="hint" style="margin-top:0;">
+        Isi ini kalau mau checkout otomatis + status "lunas" ter-update sendiri
+        tanpa kamu cek manual. Server Key didapat dari dashboard Midtrans kamu
+        (Settings → Access Keys). Kalau item punya Link Pembayaran sendiri
+        (lihat form Tambah Item), Server Key ini tidak dipakai untuk item itu.
+      </p>
+      <div class="status-line">
+        <span class="dot" id="midtransDot"></span>
+        <span id="midtransStatusText">Memeriksa status koneksi...</span>
+      </div>
+      <label>Server Key Midtrans (Sandbox/Production)</label>
+      <input id="midtransKey" type="password" placeholder="SB-Mid-server-...">
+      <button id="btnConnectMidtrans">🔗 Hubungkan Akun Midtrans</button>
+    </div>
+
+    <div class="panel">
+      <h2>Katalog / Item</h2>
+      <div id="itemList"><div class="empty">Belum ada item.</div></div>
+
+      <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+        <label>Nama Item</label>
+        <input id="itemName" placeholder="Contoh: Landing Page Premium">
+        <label>Harga (Rp)</label>
+        <input id="itemPrice" type="number" placeholder="150000">
+
+        <div class="toggle-row" style="margin-top:14px;">
+          <button type="button" class="active" id="modeOtomatis" onclick="setItemMode('otomatis')">⚙️ Otomatis (Midtrans)</button>
+          <button type="button" id="modePaste" onclick="setItemMode('paste')">📋 Paste Link Sendiri</button>
+        </div>
+        <div id="pasteLinkBox" style="display:none;">
+          <label>Link Pembayaran / QRIS milik toko</label>
+          <input id="itemPaymentLink" placeholder="https://app.midtrans.com/payment-links/... atau link QRIS">
+          <div class="hint">
+            Customer akan diarahkan langsung ke link ini. Status "lunas" untuk item
+            ini TIDAK otomatis tercatat di sistem — kamu cek sendiri via dashboard
+            pembayaranmu sendiri.
+          </div>
+        </div>
+
+        <button id="btnAddItem">➕ Tambah Item</button>
+      </div>
+    </div>
+
+    <button class="ghost" id="btnLogout">Logout</button>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDeRPjhtmNPz5TNK1TPP3O5XZd4ORyeGPs",
+  authDomain: "auth-stej-product.firebaseapp.com",
+  projectId: "auth-stej-product",
+  storageBucket: "auth-stej-product.firebasestorage.app",
+  messagingSenderId: "846128318640",
+  appId: "1:846128318640:web:1c983100c63f7e50db9375"
+};
+
+// Ganti sesuai region deploy Cloud Functions kamu kalau berbeda.
+const CLOUD_FUNCTIONS_BASE_URL = "https://us-central1-auth-stej-product.cloudfunctions.net";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let currentUser = null;
+let storeId = null; // storeId = uid pemilik, satu toko per akun (disederhanakan)
+let itemsUnsub = null;
+let currentItemMode = 'otomatis';
+
+document.getElementById('btnLogin').onclick = () => {
+  signInWithPopup(auth, new GoogleAuthProvider()).catch(err => alert('Login gagal: ' + err.message));
+};
+document.getElementById('btnLogout').onclick = () => signOut(auth);
+
+window.setItemMode = function(mode) {
+  currentItemMode = mode;
+  document.getElementById('modeOtomatis').classList.toggle('active', mode === 'otomatis');
+  document.getElementById('modePaste').classList.toggle('active', mode === 'paste');
+  document.getElementById('pasteLinkBox').style.display = mode === 'paste' ? 'block' : 'none';
+};
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    currentUser = null;
+    document.getElementById('loginBox').style.display = 'block';
+    document.getElementById('app').style.display = 'none';
+    if (itemsUnsub) itemsUnsub();
+    return;
+  }
+  currentUser = user;
+  storeId = user.uid; // satu toko per akun Google
+
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('userLine').innerHTML =
+    `<span class="dot on"></span> Login sebagai <strong>${escapeHtml(user.displayName || user.email)}</strong>`;
+  document.getElementById('storefrontLink').textContent =
+    location.origin + location.pathname.replace('store-admin.html', 'storefront.html') + '?store=' + storeId;
+
+  await loadStore();
+  await checkMidtransStatus();
+  listenItems();
+});
+
+async function loadStore() {
+  const snap = await getDoc(doc(db, 'stores', storeId));
+  if (snap.exists()) {
+    const data = snap.data();
+    document.getElementById('storeName').value = data.name || '';
+    document.getElementById('storeBankDisplay').value = data.bankDisplay || '';
+  }
+}
+
+document.getElementById('btnSaveStore').onclick = async () => {
+  const name = document.getElementById('storeName').value.trim();
+  const bankDisplay = document.getElementById('storeBankDisplay').value.trim();
+  if (!name) { alert('Nama toko wajib diisi'); return; }
+  try {
+    await setDoc(doc(db, 'stores', storeId), { name, bankDisplay, ownerUid: storeId }, { merge: true });
+    alert('Profil toko tersimpan!');
+  } catch (err) {
+    alert('Gagal simpan: ' + err.message);
+  }
+};
+
+async function checkMidtransStatus() {
+  // Client tidak bisa membaca store_secrets langsung (rules-nya tertutup total),
+  // jadi status koneksi dicek lewat endpoint ringan, bukan Firestore read.
+  // Sederhananya di sini kita anggap "belum diketahui" sampai user coba connect;
+  // untuk cek status pasti, tambahkan endpoint checkMidtransStatus terpisah
+  // di Cloud Functions kalau dibutuhkan.
+  document.getElementById('midtransStatusText').textContent = 'Isi Server Key di bawah untuk menghubungkan.';
+}
+
+document.getElementById('btnConnectMidtrans').onclick = async () => {
+  const key = document.getElementById('midtransKey').value.trim();
+  if (!key) { alert('Isi Server Key dulu'); return; }
+  const btn = document.getElementById('btnConnectMidtrans');
+  btn.disabled = true;
+  btn.textContent = 'Menghubungkan...';
+  try {
+    const idToken = await currentUser.getIdToken();
+    const res = await fetch(`${CLOUD_FUNCTIONS_BASE_URL}/connectMidtransAccount`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ storeId, midtransServerKey: key })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal menghubungkan');
+    document.getElementById('midtransDot').classList.add('on');
+    document.getElementById('midtransStatusText').textContent = '✅ Akun Midtrans terhubung';
+    document.getElementById('midtransKey').value = '';
+  } catch (err) {
+    alert('Gagal: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔗 Hubungkan Akun Midtrans';
+  }
+};
+
+function listenItems() {
+  if (itemsUnsub) itemsUnsub();
+  itemsUnsub = onSnapshot(collection(db, 'stores', storeId, 'items'), snap => {
+    const list = document.getElementById('itemList');
+    if (snap.empty) { list.innerHTML = '<div class="empty">Belum ada item.</div>'; return; }
+    let html = '';
+    snap.forEach(d => {
+      const it = d.data();
+      const tag = it.paymentLink ? '📋 Link Sendiri' : '⚙️ Otomatis Midtrans';
+      html += `
+        <div class="item-card">
+          <div>
+            <div class="name">${escapeHtml(it.name)}</div>
+            <div class="price">Rp${Number(it.price || 0).toLocaleString('id-ID')}</div>
+            <span class="tag">${tag}</span>
+          </div>
+          <button class="danger-outline" onclick="window.hapusItem('${d.id}')">Hapus</button>
+        </div>`;
+    });
+    list.innerHTML = html;
+  });
+}
+
+window.hapusItem = async function(itemId) {
+  if (!confirm('Hapus item ini?')) return;
+  await deleteDoc(doc(db, 'stores', storeId, 'items', itemId));
+};
+
+document.getElementById('btnAddItem').onclick = async () => {
+  const name = document.getElementById('itemName').value.trim();
+  const price = parseInt(document.getElementById('itemPrice').value, 10);
+  const paymentLink = document.getElementById('itemPaymentLink').value.trim();
+
+  if (!name || !price) { alert('Nama & harga wajib diisi'); return; }
+  if (currentItemMode === 'paste' && !paymentLink) { alert('Isi link pembayaran dulu, atau pilih mode Otomatis'); return; }
+
+  const payload = { name, price };
+  if (currentItemMode === 'paste') payload.paymentLink = paymentLink;
+
+  try {
+    const itemId = 'item_' + Date.now();
+    await setDoc(doc(db, 'stores', storeId, 'items', itemId), payload);
+    document.getElementById('itemName').value = '';
+    document.getElementById('itemPrice').value = '';
+    document.getElementById('itemPaymentLink').value = '';
+  } catch (err) {
+    alert('Gagal tambah item: ' + err.message);
+  }
+};
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text ?? '';
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

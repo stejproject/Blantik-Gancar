@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Storefront</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121820;
+    --panel-2: #1a2230;
+    --border: #232d3a;
+    --accent: #00d9a3;
+    --accent-dim: #0a3d33;
+    --text: #e6edf3;
+    --text-dim: #7d8b9a;
+    --warn: #f0b429;
+    --warn-dim: #3a2e0a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 80px;
+  }
+  .wrap { width: 100%; max-width: 460px; }
+  header { text-align: center; margin-bottom: 22px; }
+  header h1 { font-size: 1.25rem; margin: 0 0 4px; }
+  header p { font-size: 0.8rem; color: var(--text-dim); margin: 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .item-row:hover { border-color: var(--accent); }
+  .item-row .name { font-weight: 600; font-size: 0.92rem; }
+  .item-row .price { color: var(--accent); font-weight: 700; font-size: 0.9rem; }
+  label { display: block; font-size: 0.78rem; color: var(--text-dim); margin: 12px 0 5px; }
+  label:first-of-type { margin-top: 0; }
+  input {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: #04241c;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 14px;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 500;
+  }
+  .empty { color: var(--text-dim); font-size: 0.85rem; text-align: center; padding: 24px 0; }
+  .err { color: #f87171; font-size: 0.78rem; margin-top: 8px; display: none; }
+  .notice {
+    background: var(--warn-dim);
+    border-left: 3px solid var(--warn);
+    color: var(--warn);
+    font-size: 0.75rem;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-top: 12px;
+    line-height: 1.5;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .status-pending { background: #3a2e0a; color: var(--warn); }
+  .status-paid { background: var(--accent-dim); color: var(--accent); }
+  .status-failed { background: #3a1414; color: #f87171; }
+  #detail { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1 id="storeTitle">Memuat toko...</h1>
+    <p id="storeSub"></p>
+  </header>
+
+  <div class="panel" id="catalogPanel">
+    <div id="itemList"><div class="empty">Memuat katalog...</div></div>
+  </div>
+
+  <div class="panel" id="detail">
+    <button class="ghost" onclick="kembaliKeKatalog()">← Kembali ke katalog</button>
+
+    <div style="margin-top:14px;">
+      <div class="name" id="detailName" style="font-size:1.05rem; font-weight:700;"></div>
+      <div class="price" id="detailPrice" style="color:var(--accent); font-size:1.2rem; font-weight:700; margin-top:4px;"></div>
+    </div>
+
+    <!-- Jalur A: item punya link pembayaran sendiri dari toko -->
+    <div id="pasteFlow" style="display:none; margin-top:16px;">
+      <div class="notice">
+        Kamu akan diarahkan ke halaman pembayaran milik toko ini. Konfirmasi
+        status pembayaran dilakukan langsung oleh toko, bukan otomatis.
+      </div>
+      <button onclick="bayarViaPasteLink()">💳 Bayar Sekarang</button>
+    </div>
+
+    <!-- Jalur B: checkout otomatis via Midtrans (Server Key toko) -->
+    <div id="autoFlow" style="display:none; margin-top:16px;">
+      <label>Nama Lengkap</label>
+      <input id="cName" placeholder="Nama kamu">
+      <label>No. WhatsApp</label>
+      <input id="cPhone" placeholder="08xxxxxxxxxx">
+      <label>Email</label>
+      <input id="cEmail" type="email" placeholder="email@kamu.com">
+      <button id="btnBayarOtomatis" onclick="bayarOtomatis()">💳 Bayar Sekarang</button>
+      <div class="err" id="autoErr"></div>
+    </div>
+
+    <div id="orderStatusBox" style="display:none; text-align:center; margin-top:16px;">
+      <span class="status-badge" id="orderStatusBadge"></span>
+      <p style="font-size:0.72rem; color:var(--text-dim); margin-top:8px;">Order ID: <span id="orderIdText"></span></p>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getFirestore, doc, getDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDeRPjhtmNPz5TNK1TPP3O5XZd4ORyeGPs",
+  authDomain: "auth-stej-product.firebaseapp.com",
+  projectId: "auth-stej-product",
+  storageBucket: "auth-stej-product.firebasestorage.app",
+  messagingSenderId: "846128318640",
+  appId: "1:846128318640:web:1c983100c63f7e50db9375"
+};
+
+const CLOUD_FUNCTIONS_BASE_URL = "https://us-central1-auth-stej-product.cloudfunctions.net";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const params = new URLSearchParams(location.search);
+const storeId = params.get('store');
+
+let items = {};
+let activeItemId = null;
+let orderUnsub = null;
+
+async function init() {
+  if (!storeId) {
+    document.getElementById('storeTitle').textContent = 'Toko tidak ditemukan';
+    document.getElementById('storeSub').textContent = 'Link tidak lengkap — parameter ?store= wajib ada.';
+    document.getElementById('itemList').innerHTML = '';
+    return;
+  }
+
+  const storeSnap = await getDoc(doc(db, 'stores', storeId));
+  if (!storeSnap.exists()) {
+    document.getElementById('storeTitle').textContent = 'Toko tidak ditemukan';
+    document.getElementById('itemList').innerHTML = '';
+    return;
+  }
+  const store = storeSnap.data();
+  document.getElementById('storeTitle').textContent = store.name || 'Toko';
+  document.getElementById('storeSub').textContent = store.bankDisplay || '';
+
+  const itemsSnap = await getDocs(collection(db, 'stores', storeId, 'items'));
+  const list = document.getElementById('itemList');
+  if (itemsSnap.empty) {
+    list.innerHTML = '<div class="empty">Belum ada produk di toko ini.</div>';
+    return;
+  }
+  let html = '';
+  itemsSnap.forEach(d => {
+    items[d.id] = d.data();
+    html += `
+      <div class="item-row" onclick="window.bukaItem('${d.id}')">
+        <span class="name">${escapeHtml(items[d.id].name)}</span>
+        <span class="price">Rp${Number(items[d.id].price || 0).toLocaleString('id-ID')}</span>
+      </div>`;
+  });
+  list.innerHTML = html;
+}
+
+window.bukaItem = function(itemId) {
+  activeItemId = itemId;
+  const item = items[itemId];
+
+  document.getElementById('catalogPanel').style.display = 'none';
+  document.getElementById('detail').style.display = 'block';
+  document.getElementById('detailName').textContent = item.name;
+  document.getElementById('detailPrice').textContent = 'Rp' + Number(item.price || 0).toLocaleString('id-ID');
+  document.getElementById('orderStatusBox').style.display = 'none';
+
+  if (item.paymentLink) {
+    document.getElementById('pasteFlow').style.display = 'block';
+    document.getElementById('autoFlow').style.display = 'none';
+  } else {
+    document.getElementById('pasteFlow').style.display = 'none';
+    document.getElementById('autoFlow').style.display = 'block';
+    document.getElementById('cName').value = '';
+    document.getElementById('cPhone').value = '';
+    document.getElementById('cEmail').value = '';
+    document.getElementById('autoErr').style.display = 'none';
+  }
+};
+
+window.kembaliKeKatalog = function() {
+  if (orderUnsub) { orderUnsub(); orderUnsub = null; }
+  document.getElementById('catalogPanel').style.display = 'block';
+  document.getElementById('detail').style.display = 'none';
+  activeItemId = null;
+};
+
+window.bayarViaPasteLink = function() {
+  const item = items[activeItemId];
+  window.open(item.paymentLink, '_blank');
+};
+
+window.bayarOtomatis = async function() {
+  const item = items[activeItemId];
+  const customerName = document.getElementById('cName').value.trim();
+  const customerPhone = document.getElementById('cPhone').value.trim();
+  const customerEmail = document.getElementById('cEmail').value.trim();
+  const errEl = document.getElementById('autoErr');
+  errEl.style.display = 'none';
+
+  if (!customerName || !customerEmail) {
+    errEl.textContent = 'Nama dan email wajib diisi.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btnBayarOtomatis');
+  btn.disabled = true;
+  btn.textContent = 'Menyiapkan pembayaran...';
+
+  try {
+    const res = await fetch(`${CLOUD_FUNCTIONS_BASE_URL}/createServiceOrder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storeId, serviceId: activeItemId, customerName, customerPhone, customerEmail })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      errEl.textContent = data.error || 'Gagal membuat transaksi.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '💳 Bayar Sekarang';
+      return;
+    }
+
+    window.open(data.redirectUrl, '_blank');
+    dengarkanStatusOrder(data.orderId);
+
+  } catch (err) {
+    errEl.textContent = 'Gagal terhubung ke server pembayaran.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '💳 Bayar Sekarang';
+  }
+};
+
+function dengarkanStatusOrder(orderId) {
+  document.getElementById('autoFlow').style.display = 'none';
+  const statusBox = document.getElementById('orderStatusBox');
+  statusBox.style.display = 'block';
+  document.getElementById('orderIdText').textContent = orderId;
+
+  if (orderUnsub) orderUnsub();
+  orderUnsub = onSnapshot(doc(db, 'orders', orderId), snap => {
+    if (!snap.exists()) return;
+    const order = snap.data();
+    const badge = document.getElementById('orderStatusBadge');
+
+    if (order.status === 'paid') {
+      badge.textContent = '✅ LUNAS — Terima kasih!';
+      badge.className = 'status-badge status-paid';
+    } else if (['expire', 'cancel', 'deny'].includes(order.status)) {
+      badge.textContent = '❌ Pembayaran ' + order.status;
+      badge.className = 'status-badge status-failed';
+    } else {
+      badge.textContent = '⏳ Menunggu pembayaran...';
+      badge.className = 'status-badge status-pending';
+    }
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text ?? '';
+  return div.innerHTML;
+}
+
+init();
+</script>
+</body>
+</html>

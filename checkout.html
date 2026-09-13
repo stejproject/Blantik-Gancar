@@ -19,8 +19,7 @@ h1 { font-size:1.4rem; margin-bottom:6px; }
 .item-name { font-weight:600; font-size:.95rem; }
 .item-price { color:var(--accent); font-weight:700; }
 h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:12px; }
-.bank { display:flex; gap:12px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:12px 14px; margin-bottom:10px; cursor:pointer; transition:border .15s; }
-.bank.selected { border-color:var(--accent); background:#14532d22; }
+.bank { display:flex; gap:12px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
 .bank input { accent-color:var(--accent); width:16px; height:16px; }
 .bank .info { flex:1; }
 .bank .name { font-weight:600; font-size:.9rem; display:block; }
@@ -41,6 +40,7 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .pay-hint { background:#0f172a; border:1px dashed #334155; border-radius:10px; padding:12px 14px; margin:8px 0 4px; text-align:center; }
 .pay-hint small { color:var(--muted); display:block; margin-bottom:4px; font-size:.72rem; }
 .pay-hint strong { color:var(--accent); font-size:1.25rem; }
+.error-box { background:#7f1d1d33; border:1px solid #7f1d1d; color:#fecaca; padding:14px; border-radius:10px; text-align:center; font-size:.85rem; }
 </style>
 <base target="_blank">
 </head>
@@ -51,6 +51,11 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
     <h1 id="page-title">Checkout</h1>
     <p class="sub" id="page-sub">Silakan selesaikan pembayaran Anda</p>
   </header>
+
+  <div id="error-merchant" class="error-box" style="display:none;margin-bottom:16px">
+    Link checkout tidak valid.<br>
+    Pastikan memakai link dari admin yang berisi parameter <b>merchant</b>.
+  </div>
 
   <div class="card" id="order-card">
     <h2>Ringkasan Pesanan</h2>
@@ -110,6 +115,7 @@ const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
 const params = new URLSearchParams(location.search);
+const merchantId = params.get("merchant") || "";
 let itemId    = params.get("id") || "";
 let itemName  = params.get("item")  || "Produk / Layanan";
 let itemPrice = parseInt(params.get("price") || "0", 10);
@@ -134,32 +140,46 @@ function renderTotals() {
   }
 }
 
-onSnapshot(doc(db, "checkout_settings", "main"), snap => {
-  if (!snap.exists()) return;
-  settings = { ...settings, ...snap.data() };
-  settingsLoaded = true;
-  applySettings();
-}, err => console.error("settings error:", err.message));
-
-async function loadItem() {
-  if (!itemId) {
-    renderTotals();
-    itemLoaded = true; maybeEnableSubmit();
-    return;
-  }
-  try {
-    const snap = await getDoc(doc(db, "items", itemId));
-    if (snap.exists()) {
-      const it = snap.data();
-      itemName  = it.name || "Item";
-      itemPrice = Number(it.price) || 0;
-      fee       = Number(it.fee) || 0;
+if (!merchantId) {
+  document.getElementById("error-merchant").style.display = "block";
+  document.getElementById("item-name").textContent = "—";
+  document.getElementById("item-price").textContent = "";
+  document.getElementById("item-total").textContent = "Rp 0";
+  document.getElementById("pay-amount").textContent = "Rp 0";
+  document.getElementById("bank-list").innerHTML = '<p style="color:var(--muted);font-size:.85rem">Merchant tidak ditemukan.</p>';
+} else {
+  onSnapshot(doc(db, "merchants", merchantId, "settings", "main"), snap => {
+    if (!snap.exists()) {
+      settingsLoaded = true;
+      applySettings();
+      return;
     }
-  } catch(e) { console.error(e.message); }
-  renderTotals();
-  itemLoaded = true; maybeEnableSubmit();
+    settings = { ...settings, ...snap.data() };
+    settingsLoaded = true;
+    applySettings();
+  }, err => console.error("settings error:", err.message));
+
+  (async function loadItem() {
+    if (!itemId) {
+      renderTotals();
+      itemLoaded = true;
+      maybeEnableSubmit();
+      return;
+    }
+    try {
+      const snap = await getDoc(doc(db, "merchants", merchantId, "items", itemId));
+      if (snap.exists()) {
+        const it = snap.data();
+        itemName  = it.name || "Item";
+        itemPrice = Number(it.price) || 0;
+        fee       = Number(it.fee) || 0;
+      }
+    } catch(e) { console.error(e.message); }
+    renderTotals();
+    itemLoaded = true;
+    maybeEnableSubmit();
+  })();
 }
-loadItem();
 
 function applySettings() {
   if (settings.title) { document.title = settings.title; document.getElementById("page-title").textContent = settings.title; }
@@ -191,14 +211,21 @@ function applySettings() {
   if (settings.qris && (settings.showQrisFallback || activeBanks.length === 0)) {
     document.getElementById("qris-img").src = settings.qris;
     qrisBlock.style.display = "block";
-    if (settings.qris && !activeBanks.some(b=>b.code==="qris")) {
+    if (settings.qris && !activeBanks.some(b => b.code === "qris")) {
       const opt = document.createElement("option"); opt.value = "QRIS"; opt.textContent = "QRIS"; select.appendChild(opt);
     }
-  } else qrisBlock.style.display = "none";
+  } else {
+    qrisBlock.style.display = "none";
+  }
 
-  if (activeBanks.length === 0) {
+  if (activeBanks.length === 0 && !settings.qris) {
+    document.getElementById("notice-all-offline").textContent = "⚠️ Belum ada metode pembayaran aktif.";
+    document.getElementById("notice-all-offline").style.display = "block";
+  } else if (activeBanks.length === 0) {
     document.getElementById("notice-all-offline").textContent = "⚠️ Transfer bank sedang tidak tersedia. Silakan gunakan QRIS.";
     document.getElementById("notice-all-offline").style.display = "block";
+  } else {
+    document.getElementById("notice-all-offline").style.display = "none";
   }
   maybeEnableSubmit();
 }
@@ -206,46 +233,60 @@ function applySettings() {
 document.getElementById("bank-list").addEventListener("click", e => {
   const btn = e.target.closest(".copy");
   if (btn) {
-    navigator.clipboard.writeText(btn.dataset.num).then(() => { btn.textContent = "✓"; setTimeout(()=>btn.textContent="Salin", 1500); });
+    navigator.clipboard.writeText(btn.dataset.num).then(() => {
+      btn.textContent = "✓";
+      setTimeout(() => btn.textContent = "Salin", 1500);
+    });
   }
 });
 
 document.getElementById("f-bukti").addEventListener("change", e => {
   const f = e.target.files[0];
   if (!f) return;
-  if (f.size > 800*1024) { alert("Maksimal 800KB"); e.target.value=""; return; }
+  if (f.size > 800 * 1024) { alert("Maksimal 800KB"); e.target.value = ""; return; }
   const r = new FileReader();
-  r.onload = ev => { const img = document.getElementById("f-bukti-preview"); img.src = ev.target.result; img.style.display = "block"; };
+  r.onload = ev => {
+    const img = document.getElementById("f-bukti-preview");
+    img.src = ev.target.result;
+    img.style.display = "block";
+  };
   r.readAsDataURL(f);
 });
 
 function maybeEnableSubmit() {
-  document.getElementById("btn-submit").disabled = !(settingsLoaded && itemLoaded && orderTotal() > 0);
+  document.getElementById("btn-submit").disabled = !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0);
 }
 
 document.getElementById("btn-submit").addEventListener("click", async () => {
-  const nama   = document.getElementById("f-nama").value.trim();
-  const metode = document.getElementById("f-metode").value;
-  const catatan= document.getElementById("f-catatan").value.trim();
-  const file   = document.getElementById("f-bukti").files[0];
-  const total  = orderTotal();
+  const nama    = document.getElementById("f-nama").value.trim();
+  const metode  = document.getElementById("f-metode").value;
+  const catatan = document.getElementById("f-catatan").value.trim();
+  const file    = document.getElementById("f-bukti").files[0];
+  const total   = orderTotal();
 
+  if (!merchantId) { alert("Link checkout tidak valid."); return; }
   if (!nama || !metode) { alert("Nama pengirim dan metode wajib diisi!"); return; }
   if (total <= 0) { alert("Total pesanan tidak valid."); return; }
 
   const btn = document.getElementById("btn-submit");
-  btn.disabled = true; btn.textContent = "Mengirim...";
+  btn.disabled = true;
+  btn.textContent = "Mengirim...";
 
   let buktiBase64 = null;
   if (file) {
     buktiBase64 = await new Promise(res => {
-      const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file);
+      const r = new FileReader();
+      r.onload = ev => res(ev.target.result);
+      r.readAsDataURL(file);
     });
   }
 
   try {
-    const ref = await addDoc(collection(db, "payments"), {
-      itemId, item: itemName, price: itemPrice, fee,
+    const ref = await addDoc(collection(db, "merchants", merchantId, "payments"), {
+      itemId,
+      item: itemName,
+      price: itemPrice,
+      fee,
       total,
       senderName: nama,
       nominal: total,
@@ -257,21 +298,29 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
     });
     alert("Konfirmasi terkirim! Tunggu verifikasi admin.");
     watchStatus(ref.id);
-  } catch(e) {
+  } catch (e) {
     alert("Gagal mengirim: " + e.message);
-    btn.disabled = false; btn.textContent = "📤 Kirim Konfirmasi Pembayaran";
+    btn.disabled = false;
+    btn.textContent = "📤 Kirim Konfirmasi Pembayaran";
   }
 });
 
 function watchStatus(paymentId) {
-  onSnapshot(doc(db, "payments", paymentId), snap => {
+  onSnapshot(doc(db, "merchants", merchantId, "payments", paymentId), snap => {
     if (!snap.exists()) return;
     const p = snap.data();
     const el = document.getElementById("pay-status");
     el.className = "status " + p.status;
-    if (p.status === "pending")   el.textContent = "⏳ Pembayaran Anda sedang diverifikasi admin.";
-    if (p.status === "approved")  { el.textContent = "✅ PEMBAYARAN DISETUJUI. Terima kasih!"; document.getElementById("btn-submit").style.display = "none"; }
-    if (p.status === "rejected")  { el.textContent = "❌ Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti."; document.getElementById("btn-submit").disabled = false; document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi"; }
+    if (p.status === "pending") el.textContent = "⏳ Pembayaran Anda sedang diverifikasi admin.";
+    if (p.status === "approved") {
+      el.textContent = "✅ PEMBAYARAN DISETUJUI. Terima kasih!";
+      document.getElementById("btn-submit").style.display = "none";
+    }
+    if (p.status === "rejected") {
+      el.textContent = "❌ Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti.";
+      document.getElementById("btn-submit").disabled = false;
+      document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi";
+    }
   });
 }
 </script>

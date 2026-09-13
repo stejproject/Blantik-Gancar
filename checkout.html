@@ -26,8 +26,6 @@ h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--
 .bank .name { font-weight:600; font-size:.9rem; display:block; }
 .bank .number { font-size:.8rem; color:var(--muted); font-family:monospace; letter-spacing:1px; }
 .bank .copy { font-size:.7rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:5px 10px; cursor:pointer; }
-.bank.offline { opacity:.45; pointer-events:none; }
-.badge-off { background:#7f1d1d; color:#fecaca; font-size:.6rem; padding:2px 8px; border-radius:99px; margin-left:8px; vertical-align:middle; }
 label { display:block; font-size:.75rem; color:var(--muted); margin:12px 0 5px; }
 input, select, textarea { width:100%; background:#0f172a; border:1px solid #334155; color:var(--text); padding:11px 12px; border-radius:9px; font-size:.9rem; }
 input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); }
@@ -40,6 +38,9 @@ button.primary:disabled { opacity:.5; cursor:not-allowed; }
 .qris-img { max-width:220px; width:100%; border-radius:10px; display:block; margin:10px auto; background:#fff; padding:8px; }
 footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .notice { display:none; background:#713f1222; border:1px solid #a16207; color:#fbbf24; font-size:.8rem; padding:10px 12px; border-radius:8px; margin-bottom:12px; }
+.pay-hint { background:#0f172a; border:1px dashed #334155; border-radius:10px; padding:12px 14px; margin:8px 0 4px; text-align:center; }
+.pay-hint small { color:var(--muted); display:block; margin-bottom:4px; font-size:.72rem; }
+.pay-hint strong { color:var(--accent); font-size:1.25rem; }
 </style>
 <base target="_blank">
 </head>
@@ -62,6 +63,10 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 
   <div class="card" id="method-card">
     <h2>Metode Pembayaran</h2>
+    <div class="pay-hint">
+      <small>Transfer tepat sebesar</small>
+      <strong id="pay-amount">Rp 0</strong>
+    </div>
     <div id="bank-list"><p style="color:var(--muted);font-size:.85rem">Memuat rekening...</p></div>
     <div id="qris-block" style="display:none">
       <label>QRIS</label>
@@ -74,8 +79,6 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
     <h2>Konfirmasi Pembayaran</h2>
     <label>Nama Pengirim (sesuai rekening)</label>
     <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
-    <label>Nominal Transfer (Rp)</label>
-    <input type="text" id="f-nominal" placeholder="150.000">
     <label>Metode Pembayaran</label>
     <select id="f-metode"><option value="">— pilih —</option></select>
     <label>Bukti Transfer (foto)</label>
@@ -91,36 +94,46 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 </div>
 
 <script type="module">
-// ============ KONFIGURASI FIREBASE ANDA ============
-// Ganti dengan config project Firebase BARU Anda (lihat panduan di README_Setup.txt)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCMdMWdmLQs1H2azteEXH0ldGhKEkf1R4E",
-    authDomain: "stej-checkout.firebaseapp.com",
-    projectId: "stej-checkout",
-    storageBucket: "stej-checkout.firebasestorage.app",
-    messagingSenderId: "87920802108",
-    appId: "1:87920802108:web:3253dff10f78d139f7c639"
+  apiKey: "AIzaSyCMdMWdmLQs1H2azteEXH0ldGhKEkf1R4E",
+  authDomain: "stej-checkout.firebaseapp.com",
+  projectId: "stej-checkout",
+  storageBucket: "stej-checkout.firebasestorage.app",
+  messagingSenderId: "87920802108",
+  appId: "1:87920802108:web:3253dff10f78d139f7c639"
 };
-// ===================================================
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
-// Parameter URL: ?item=nama_produk&price=150000
 const params = new URLSearchParams(location.search);
-const itemName  = params.get("item")  || "Produk / Layanan";
-const itemPrice = parseInt(params.get("price") || "0", 10);
+let itemId    = params.get("id") || "";
+let itemName  = params.get("item")  || "Produk / Layanan";
+let itemPrice = parseInt(params.get("price") || "0", 10);
 let fee = 0;
 
 let settings = { title:"Checkout", sub:"", logo:"", qris:"", banks:[], showQrisFallback:true, footer:"" };
 let settingsLoaded = false, itemLoaded = false;
 
 function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
+function orderTotal(){ return (Number(itemPrice)||0) + (Number(fee)||0); }
 
-// ---------- Muat settings halaman (realtime) ----------
+function renderTotals() {
+  document.getElementById("item-name").textContent  = itemName;
+  document.getElementById("item-price").textContent = fmt(itemPrice);
+  document.getElementById("item-total").textContent = fmt(orderTotal());
+  document.getElementById("pay-amount").textContent = fmt(orderTotal());
+  if (fee) {
+    document.getElementById("fee-row").style.display = "flex";
+    document.getElementById("item-fee").textContent = fmt(fee);
+  } else {
+    document.getElementById("fee-row").style.display = "none";
+  }
+}
+
 onSnapshot(doc(db, "checkout_settings", "main"), snap => {
   if (!snap.exists()) return;
   settings = { ...settings, ...snap.data() };
@@ -128,30 +141,22 @@ onSnapshot(doc(db, "checkout_settings", "main"), snap => {
   applySettings();
 }, err => console.error("settings error:", err.message));
 
-// ---------- Muat item dari Firestore jika ada parameter ?id= ----------
 async function loadItem() {
-  const id = params.get("id");
-  if (!id) {
-    document.getElementById("item-name").textContent  = itemName;
-    document.getElementById("item-price").textContent = fmt(itemPrice);
-    document.getElementById("item-total").textContent = fmt(itemPrice);
+  if (!itemId) {
+    renderTotals();
     itemLoaded = true; maybeEnableSubmit();
     return;
   }
   try {
-    const snap = await getDoc(doc(db, "items", id));
+    const snap = await getDoc(doc(db, "items", itemId));
     if (snap.exists()) {
       const it = snap.data();
-      document.getElementById("item-name").textContent  = it.name  || "Item";
-      if (it.fee) {
-        fee = Number(it.fee)||0;
-        document.getElementById("fee-row").style.display = "flex";
-        document.getElementById("item-fee").textContent = fmt(fee);
-      }
-      document.getElementById("item-price").textContent = fmt(it.price);
-      document.getElementById("item-total").textContent = fmt((Number(it.price)||0) + fee);
+      itemName  = it.name || "Item";
+      itemPrice = Number(it.price) || 0;
+      fee       = Number(it.fee) || 0;
     }
   } catch(e) { console.error(e.message); }
+  renderTotals();
   itemLoaded = true; maybeEnableSubmit();
 }
 loadItem();
@@ -198,7 +203,6 @@ function applySettings() {
   maybeEnableSubmit();
 }
 
-// ---------- Salin nomor rekening ----------
 document.getElementById("bank-list").addEventListener("click", e => {
   const btn = e.target.closest(".copy");
   if (btn) {
@@ -206,7 +210,6 @@ document.getElementById("bank-list").addEventListener("click", e => {
   }
 });
 
-// ---------- Bukti preview ----------
 document.getElementById("f-bukti").addEventListener("change", e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -217,18 +220,18 @@ document.getElementById("f-bukti").addEventListener("change", e => {
 });
 
 function maybeEnableSubmit() {
-  document.getElementById("btn-submit").disabled = !(settingsLoaded && itemLoaded);
+  document.getElementById("btn-submit").disabled = !(settingsLoaded && itemLoaded && orderTotal() > 0);
 }
 
-// ---------- Kirim konfirmasi ----------
 document.getElementById("btn-submit").addEventListener("click", async () => {
   const nama   = document.getElementById("f-nama").value.trim();
-  const nominal= document.getElementById("f-nominal").value.replace(/[^0-9]/g,"");
   const metode = document.getElementById("f-metode").value;
   const catatan= document.getElementById("f-catatan").value.trim();
   const file   = document.getElementById("f-bukti").files[0];
+  const total  = orderTotal();
 
-  if (!nama || !nominal || !metode) { alert("Nama pengirim, nominal, dan metode wajib diisi!"); return; }
+  if (!nama || !metode) { alert("Nama pengirim dan metode wajib diisi!"); return; }
+  if (total <= 0) { alert("Total pesanan tidak valid."); return; }
 
   const btn = document.getElementById("btn-submit");
   btn.disabled = true; btn.textContent = "Mengirim...";
@@ -242,11 +245,15 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
 
   try {
     const ref = await addDoc(collection(db, "payments"), {
-      item: itemName, price: itemPrice, fee,
-      total: itemPrice + fee,
-      senderName: nama, nominal: Number(nominal), method: metode,
-      note: catatan, proofBase64: buktiBase64,
-      status: "pending", createdAt: new Date().toISOString()
+      itemId, item: itemName, price: itemPrice, fee,
+      total,
+      senderName: nama,
+      nominal: total,
+      method: metode,
+      note: catatan,
+      proofBase64: buktiBase64,
+      status: "pending",
+      createdAt: new Date().toISOString()
     });
     alert("Konfirmasi terkirim! Tunggu verifikasi admin.");
     watchStatus(ref.id);
@@ -256,7 +263,6 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
   }
 });
 
-// ---------- Pantau status pembayaran (realtime) ----------
 function watchStatus(paymentId) {
   onSnapshot(doc(db, "payments", paymentId), snap => {
     if (!snap.exists()) return;

@@ -186,7 +186,9 @@ window.showTab = (id, btn) => {
 };
 
 let paymentsUnsub = null;
+let uid = null;
 function init() {
+  uid = user.uid;
   loadSettings();
   loadBanks();
   loadItems();
@@ -196,7 +198,7 @@ function init() {
 // ---------- Pembayaran ----------
 window.loadPayments = (filter) => {
   if (paymentsUnsub) paymentsUnsub();
-  const q = query(collection(db, "payments"), orderBy("createdAt", "desc"));
+  const q = query(collection(db, "merchants", uid, "payments"), orderBy("createdAt", "desc"));
   paymentsUnsub = onSnapshot(q, snap => {
     const rows = [];
     snap.forEach(s => {
@@ -219,17 +221,17 @@ window.loadPayments = (filter) => {
       '<tr><td colspan="5" style="color:var(--muted)">Tidak ada data</td></tr>';
   });
 };
-window.approvePay = async id => { await updateDoc(doc(db,"payments",id), { status:"approved", verifiedAt:new Date().toISOString() }); toast("Disetujui ✓"); };
+window.approvePay = async id => { await updateDoc(doc(db,"merchants",uid,"payments",id), { status:"approved", verifiedAt:new Date().toISOString() }); toast("Disetujui ✓"); };
 window.rejectPay  = async id => {
   const r = prompt("Alasan penolakan (opsional):") || "";
-  await updateDoc(doc(db,"payments",id), { status:"rejected", rejectReason:r, verifiedAt:new Date().toISOString() });
+  await updateDoc(doc(db,"merchants",uid,"payments",id), { status:"rejected", rejectReason:r, verifiedAt:new Date().toISOString() });
   toast("Ditolak");
 };
-window.deletePay  = async id => { if (confirm("Hapus data pembayaran ini?")) { await deleteDoc(doc(db,"payments",id)); toast("Dihapus"); } };
+window.deletePay  = async id => { if (confirm("Hapus data pembayaran ini?")) { await deleteDoc(doc(db,"merchants",uid,"payments",id)); toast("Dihapus"); } };
 
 // ---------- Rekening ----------
 function loadBanks() {
-  onSnapshot(doc(db, "checkout_settings", "main"), snap => {
+  onSnapshot(doc(db, "merchants", uid, "settings", "main"), snap => {
     if (!snap.exists()) return;
     const banks = snap.data().banks || [];
     document.getElementById("bank-list").innerHTML = banks.length ? banks.map(b => `
@@ -243,7 +245,7 @@ function loadBanks() {
   });
 }
 window.saveBank = async () => {
-  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const snap = await getDoc(doc(db, "merchants", uid, "settings", "main"));
   const banks = (snap.exists() && snap.data().banks) || [];
   const code = document.getElementById("bank-code").value.trim().toLowerCase();
   const data = {
@@ -255,17 +257,17 @@ window.saveBank = async () => {
   if (!data.bank || !code || !data.number) { alert("Bank, kode, dan nomor wajib diisi!"); return; }
   const idx = banks.findIndex(b => b.code === code);
   if (idx >= 0) banks[idx] = { ...banks[idx], ...data }; else banks.push({ code, ...data });
-  await setDoc(doc(db, "checkout_settings", "main"), { banks }, { merge: true });
+  await setDoc(doc(db, "merchants", uid, "settings", "main"), { banks }, { merge: true });
   clearBankForm(); toast("Rekening tersimpan ✓");
 };
 window.toggleBank = async code => {
-  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const snap = await getDoc(doc(db, "merchants", uid, "settings", "main"));
   const banks = snap.data().banks || [];
   const b = banks.find(x => x.code === code);
-  if (b) { b.active = b.active === false ? true : false; await setDoc(doc(db,"checkout_settings","main"), { banks }, { merge: true }); }
+  if (b) { b.active = b.active === false ? true : false; await setDoc(doc(db,"merchants",uid,"settings","main"), { banks }, { merge: true }); }
 };
 window.editBank = async code => {
-  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const snap = await getDoc(doc(db, "merchants", uid, "settings", "main"));
   const b = (snap.data().banks || []).find(x => x.code === code);
   if (!b) return;
   document.getElementById("bank-edit-id").value = code;
@@ -276,16 +278,16 @@ window.editBank = async code => {
 };
 window.deleteBank = async code => {
   if (!confirm("Hapus rekening ini?")) return;
-  const snap = await getDoc(doc(db, "checkout_settings", "main"));
+  const snap = await getDoc(doc(db, "merchants", uid, "settings", "main"));
   const banks = (snap.data().banks || []).filter(b => b.code !== code);
-  await setDoc(doc(db, "checkout_settings", "main"), { banks }, { merge: true });
+  await setDoc(doc(db, "merchants", uid, "settings", "main"), { banks }, { merge: true });
   toast("Rekening dihapus");
 };
 window.clearBankForm = () => ["bank-edit-id","bank-code","bank-bank","bank-number","bank-holder"].forEach(id => document.getElementById(id).value = "");
 
 // ---------- Pengaturan halaman ----------
 function loadSettings() {
-  onSnapshot(doc(db, "checkout_settings", "main"), snap => {
+  onSnapshot(doc(db, "merchants", uid, "settings", "main"), snap => {
     if (!snap.exists()) return;
     const s = snap.data();
     document.getElementById("set-title").value = s.title || "";
@@ -297,7 +299,7 @@ function loadSettings() {
   });
 }
 window.saveSettings = async () => {
-  await setDoc(doc(db, "checkout_settings", "main"), {
+  await setDoc(doc(db, "merchants", uid, "settings", "main"), {
     title: document.getElementById("set-title").value.trim(),
     sub: document.getElementById("set-sub").value.trim(),
     logo: document.getElementById("set-logo").value.trim(),
@@ -311,7 +313,7 @@ window.saveSettings = async () => {
 // ---------- Item ----------
 let itemsCache = [];
 function loadItems() {
-  onSnapshot(collection(db, "items"), snap => {
+  onSnapshot(collection(db, "merchants", uid, "items"), snap => {
     itemsCache = [];
     snap.forEach(s => itemsCache.push({ id: s.id, ...s.data() }));
     document.getElementById("item-list").innerHTML = itemsCache.length ? itemsCache.map(it => `
@@ -321,7 +323,7 @@ function loadItems() {
       </div>`).join("") : '<p style="color:var(--muted);font-size:.85rem">Belum ada item.</p>';
     document.getElementById("item-links").innerHTML = itemsCache.length ?
       "Link checkout:<br>" + itemsCache.map(it =>
-        `<a style="color:var(--accent)" target="_blank" href="checkout.html?id=${it.id}">checkout.html?id=${it.id}</a> (${esc(it.name)})`).join("<br>") : "";
+        `<a style="color:var(--accent)" target="_blank" href="checkout.html?merchant=${uid}&id=${it.id}">checkout.html?merchant=${uid}&id=${it.id}</a> (${esc(it.name)})`).join("<br>") : "";
   });
 }
 window.saveItem = async () => {
@@ -329,11 +331,11 @@ window.saveItem = async () => {
   const price = Number(document.getElementById("it-price").value || 0);
   const fee = Number(document.getElementById("it-fee").value || 0);
   if (!name || !price) { alert("Nama dan harga wajib diisi!"); return; }
-  await addDoc(collection(db, "items"), { name, price, fee, createdAt: new Date().toISOString() });
+  await addDoc(collection(db, "merchants", uid, "items"), { name, price, fee, createdAt: new Date().toISOString() });
   document.getElementById("it-name").value = ""; document.getElementById("it-price").value = ""; document.getElementById("it-fee").value = "";
   toast("Item ditambah ✓");
 };
-window.deleteItem = async id => { if (confirm("Hapus item?")) await deleteDoc(doc(db, "items", id)); };
+window.deleteItem = async id => { if (confirm("Hapus item?")) await deleteDoc(doc(db, "merchants", uid, "items", id)); };
 
 function esc(t) { const d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; }
 </script>

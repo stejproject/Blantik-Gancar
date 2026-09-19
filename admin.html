@@ -316,14 +316,18 @@ function loadItems() {
   onSnapshot(collection(db, "merchants", uid, "items"), snap => {
     itemsCache = [];
     snap.forEach(s => itemsCache.push({ id: s.id, ...s.data() }));
-    document.getElementById("item-list").innerHTML = itemsCache.length ? itemsCache.map(it => `
+    document.getElementById("item-list").innerHTML = itemsCache.length ? itemsCache.map(it => {
+      const link = `checkout.html?merchant=${uid}&id=${it.id}`;
+      return `
       <div class="bank-row">
-        <div class="grow"><b>${esc(it.name)}</b><small>Rp ${Number(it.price||0).toLocaleString("id-ID")}${it.fee ? " + fee " + Number(it.fee).toLocaleString("id-ID") : ""}</small></div>
+        <div class="grow">
+          <b>${esc(it.name)}</b>
+          <small>Rp ${Number(it.price||0).toLocaleString("id-ID")}${it.fee ? " + fee " + Number(it.fee).toLocaleString("id-ID") : ""}</small>
+          <br><a style="color:var(--accent);font-size:.8rem;word-break:break-all" target="_blank" href="${link}">${link}</a>
+        </div>
         <button class="red sm" onclick="deleteItem('${it.id}')">🗑</button>
-      </div>`).join("") : '<p style="color:var(--muted);font-size:.85rem">Belum ada item.</p>';
-    document.getElementById("item-links").innerHTML = itemsCache.length ?
-      "Link checkout:<br>" + itemsCache.map(it =>
-        `<a style="color:var(--accent)" target="_blank" href="checkout.html?merchant=${uid}&id=${it.id}">checkout.html?merchant=${uid}&id=${it.id}</a> (${esc(it.name)})`).join("<br>") : "";
+      </div>`;
+    }).join("") : '<p style="color:var(--muted);font-size:.85rem">Belum ada item.</p>';
   });
 }
 window.saveItem = async () => {

@@ -25,10 +25,12 @@ th { text-align:left; color:var(--muted); font-size:.68rem; padding:8px 6px; bor
 td { padding:10px 6px; border-bottom:1px solid #1e293b; vertical-align:top; }
 .badge { display:inline-block; font-size:.65rem; font-weight:700; padding:3px 9px; border-radius:99px; }
 .badge.pending  { background:#713f12; color:#fde68a; }
-.badge.approved { background:#14532d; color:#86efac; }
-.badge.rejected { background:#7f1d1d; color:#fecaca; }
+.badge.approved,.badge.settlement,.badge.capture { background:#14532d; color:#86efac; }
+.badge.rejected,.badge.expire,.badge.cancel,.badge.deny { background:#7f1d1d; color:#fecaca; }
 .badge.on  { background:#14532d; color:#86efac; }
 .badge.off { background:#334155; color:#94a3b8; }
+.badge.mdt { background:#1e3a8a; color:#bfdbfe; }
+.badge.manual { background:#334155; color:#cbd5e1; }
 .bank-row { display:flex; gap:8px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px 12px; margin-bottom:8px; flex-wrap:wrap; }
 .bank-row .grow { flex:1; min-width:150px; }
 .bank-row .grow b { display:block; font-size:.85rem; }
@@ -41,13 +43,16 @@ td { padding:10px 6px; border-bottom:1px solid #1e293b; vertical-align:top; }
 .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
 .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--accent); color:#052e16; padding:10px 20px; border-radius:99px; font-size:.8rem; font-weight:700; display:none; z-index:99; }
+.hint { font-size:.72rem; color:var(--muted); margin-top:6px; line-height:1.5; }
+.switch-row { display:flex; align-items:center; gap:8px; margin-top:14px; }
+.switch-row input { width:auto; }
 </style>
 <base target="_blank">
 </head>
 <body>
 <div class="wrap">
   <h1>⚙️ Admin Checkout</h1>
-  <p class="sub">Kelola halaman checkout, rekening bank, dan verifikasi pembayaran</p>
+  <p class="sub">Kelola halaman checkout, rekening bank, Midtrans, dan verifikasi pembayaran</p>
 
   <!-- LOGIN -->
   <div class="card" id="login-card">
@@ -66,6 +71,7 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
       <div class="tabs">
         <button class="active" data-tab="pay" onclick="showTab('pay',this)">💳 Pembayaran</button>
         <button data-tab="bank" onclick="showTab('bank',this)">🏦 Rekening</button>
+        <button data-tab="mdt" onclick="showTab('mdt',this)">🔌 Midtrans</button>
         <button data-tab="page" onclick="showTab('page',this)">🎨 Halaman</button>
         <button data-tab="item" onclick="showTab('item',this)">📦 Item / Produk</button>
       </div>
@@ -75,18 +81,18 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
         <div style="display:flex;gap:6px;margin-bottom:6px">
           <button class="gray sm" onclick="loadPayments('all')">Semua</button>
           <button class="gray sm" onclick="loadPayments('pending')">⏳ Pending</button>
-          <button class="gray sm" onclick="loadPayments('approved')">✅ Approved</button>
-          <button class="gray sm" onclick="loadPayments('rejected')">❌ Rejected</button>
+          <button class="gray sm" onclick="loadPayments('approved')">✅ Approved / Settlement</button>
+          <button class="gray sm" onclick="loadPayments('rejected')">❌ Rejected / Expired</button>
         </div>
         <table>
-          <thead><tr><th>Pelanggan</th><th>Item</th><th>Nominal</th><th>Status</th><th>Aksi</th></tr></thead>
-          <tbody id="pay-body"><tr><td colspan="5" style="color:var(--muted)">Memuat...</td></tr></tbody>
+          <thead><tr><th>Pelanggan</th><th>Item</th><th>Nominal</th><th>Channel</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody id="pay-body"><tr><td colspan="6" style="color:var(--muted)">Memuat...</td></tr></tbody>
         </table>
       </div>
 
       <!-- TAB: REKENING -->
       <div id="tab-bank" style="display:none">
-        <h2>Daftar Rekening</h2>
+        <h2>Daftar Rekening (metode manual)</h2>
         <div id="bank-list"></div>
         <h2>Tambah / Edit Rekening</h2>
         <input type="hidden" id="bank-edit-id">
@@ -102,6 +108,31 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
           <button onclick="saveBank()">💾 Simpan Rekening</button>
           <button class="gray" onclick="clearBankForm()">Bersihkan</button>
         </div>
+        <p class="hint">Rekening manual ini otomatis jadi <b>fallback</b>: kalau Midtrans di tab sebelah belum diaktifkan (atau gagal dimuat), pembeli tetap bisa bayar transfer manual seperti biasa.</p>
+      </div>
+
+      <!-- TAB: MIDTRANS -->
+      <div id="tab-mdt" style="display:none">
+        <h2>Pengaturan Midtrans</h2>
+        <div class="switch-row">
+          <input type="checkbox" id="mdt-enabled">
+          <label style="margin:0" for="mdt-enabled">Aktifkan pembayaran otomatis via Midtrans di halaman checkout</label>
+        </div>
+        <label>Mode</label>
+        <select id="mdt-mode">
+          <option value="sandbox">Sandbox (testing)</option>
+          <option value="production">Production (uang asli)</option>
+        </select>
+        <label>Server Key</label>
+        <input id="mdt-server-key" type="password" placeholder="SB-Mid-server-xxxxxxxxxxxxxxxx">
+        <label>Client Key</label>
+        <input id="mdt-client-key" placeholder="SB-Mid-client-xxxxxxxxxxxxxxxx">
+        <div style="margin-top:14px"><button onclick="saveMidtransSettings()">💾 Simpan Pengaturan Midtrans</button></div>
+        <p class="hint">
+          ⚠️ <b>Server Key wajib dirahasiakan.</b> Key ini hanya dibaca dari sisi server (Cloud Function), tidak pernah dikirim ke browser pembeli.
+          Pastikan Firestore Security Rules membatasi dokumen <code>merchants/{uid}/settings/midtrans</code> hanya bisa dibaca/ditulis oleh pemilik akun (<code>request.auth.uid == uid</code>), bukan publik.<br><br>
+          Dapatkan Server Key &amp; Client Key dari <a href="https://dashboard.midtrans.com/settings/config_info" target="_blank" style="color:var(--accent)">Dashboard Midtrans → Settings → Access Keys</a>. Pakai key <b>Sandbox</b> dulu untuk uji coba sebelum pindah ke <b>Production</b>.
+        </p>
       </div>
 
       <!-- TAB: HALAMAN -->
@@ -130,7 +161,6 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
         </div>
         <label>Biaya Layanan (Rp, opsional)</label><input id="it-fee" type="number" placeholder="0">
         <div style="margin-top:12px"><button onclick="saveItem()">➕ Tambah Item</button></div>
-        <p style="font-size:.72rem;color:var(--muted);margin-top:12px" id="item-links"></p>
       </div>
     </div>
   </div>
@@ -180,7 +210,7 @@ function toast(msg) {
 
 // ---------- Tabs ----------
 window.showTab = (id, btn) => {
-  ["pay","bank","page","item"].forEach(t => document.getElementById("tab-"+t).style.display = t===id ? "block":"none");
+  ["pay","bank","mdt","page","item"].forEach(t => document.getElementById("tab-"+t).style.display = t===id ? "block":"none");
   document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
 };
@@ -191,6 +221,7 @@ function init() {
   uid = user.uid;
   loadSettings();
   loadBanks();
+  loadMidtransSettings();
   loadItems();
   loadPayments("pending");
 }
@@ -203,22 +234,30 @@ window.loadPayments = (filter) => {
     const rows = [];
     snap.forEach(s => {
       const p = { id: s.id, ...s.data() };
-      if (filter !== "all" && p.status !== filter) return;
+      const isMdt = p.channel === "midtrans";
+      // untuk filter "approved"/"rejected" dari tombol, kelompokkan status midtrans yang setara
+      const approvedLike = ["approved","settlement","capture"];
+      const rejectedLike = ["rejected","expire","cancel","deny"];
+      if (filter === "approved" && !approvedLike.includes(p.status)) return;
+      if (filter === "rejected" && !rejectedLike.includes(p.status)) return;
+      if (filter === "pending" && p.status !== "pending") return;
       rows.push(`<tr>
-        <td><b>${esc(p.senderName)}</b><br><small style="color:var(--muted)">${esc(p.method)}</small></td>
+        <td><b>${esc(p.senderName)}</b><br><small style="color:var(--muted)">${esc(p.method||"-")}</small></td>
         <td>${esc(p.item)}<br><small style="color:var(--muted)">total: Rp ${(p.total||p.price||0).toLocaleString("id-ID")}</small></td>
         <td>Rp ${Number(p.nominal||0).toLocaleString("id-ID")}</td>
+        <td><span class="badge ${isMdt?"mdt":"manual"}">${isMdt?"Midtrans":"Manual"}</span></td>
         <td><span class="badge ${p.status}">${p.status}</span></td>
         <td>
           ${p.proofBase64 ? `<a href="${p.proofBase64}" target="_blank"><img class="proof" src="${p.proofBase64}"></a><br>` : ""}
-          ${p.status === "pending" ? `
+          ${(!isMdt && p.status === "pending") ? `
             <button class="sm" onclick="approvePay('${p.id}')">✅ Setujui</button>
             <button class="red sm" onclick="rejectPay('${p.id}')">❌ Tolak</button>` : ""}
+          ${isMdt ? `<small style="color:var(--muted)">otomatis via webhook</small><br>` : ""}
           <button class="gray sm" onclick="deletePay('${p.id}')">🗑</button>
         </td></tr>`);
     });
     document.getElementById("pay-body").innerHTML = rows.length ? rows.join("") :
-      '<tr><td colspan="5" style="color:var(--muted)">Tidak ada data</td></tr>';
+      '<tr><td colspan="6" style="color:var(--muted)">Tidak ada data</td></tr>';
   });
 };
 window.approvePay = async id => { await updateDoc(doc(db,"merchants",uid,"payments",id), { status:"approved", verifiedAt:new Date().toISOString() }); toast("Disetujui ✓"); };
@@ -284,6 +323,38 @@ window.deleteBank = async code => {
   toast("Rekening dihapus");
 };
 window.clearBankForm = () => ["bank-edit-id","bank-code","bank-bank","bank-number","bank-holder"].forEach(id => document.getElementById(id).value = "");
+
+// ---------- Midtrans ----------
+function loadMidtransSettings() {
+  onSnapshot(doc(db, "merchants", uid, "settings", "midtrans"), snap => {
+    const m = snap.exists() ? snap.data() : {};
+    document.getElementById("mdt-enabled").checked = !!m.enabled;
+    document.getElementById("mdt-mode").value = m.isProduction ? "production" : "sandbox";
+    document.getElementById("mdt-server-key").value = m.serverKey || "";
+    document.getElementById("mdt-client-key").value = m.clientKey || "";
+  });
+}
+window.saveMidtransSettings = async () => {
+  const enabled = document.getElementById("mdt-enabled").checked;
+  const isProduction = document.getElementById("mdt-mode").value === "production";
+  const serverKey = document.getElementById("mdt-server-key").value.trim();
+  const clientKey = document.getElementById("mdt-client-key").value.trim();
+  if (enabled && (!serverKey || !clientKey)) {
+    alert("Server Key dan Client Key wajib diisi kalau Midtrans mau diaktifkan.");
+    return;
+  }
+  // dokumen PRIVAT: berisi serverKey, hanya boleh dibaca/ditulis pemilik akun
+  await setDoc(doc(db, "merchants", uid, "settings", "midtrans"), {
+    enabled, isProduction, serverKey, clientKey,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+  // dokumen PUBLIK: tanpa serverKey, ini yang dibaca checkout.html dari browser pembeli
+  await setDoc(doc(db, "merchants", uid, "settings", "midtransPublic"), {
+    enabled, isProduction, clientKey,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+  toast("Pengaturan Midtrans tersimpan ✓");
+};
 
 // ---------- Pengaturan halaman ----------
 function loadSettings() {

@@ -32,8 +32,8 @@ button.primary { width:100%; background:var(--accent); color:#052e16; font-weigh
 button.primary:disabled { opacity:.5; cursor:not-allowed; }
 .status { display:none; text-align:center; padding:14px; border-radius:10px; font-size:.85rem; margin-top:14px; }
 .status.pending { display:block; background:#713f12; color:#fde68a; }
-.status.approved { display:block; background:#14532d; color:#86efac; }
-.status.rejected { display:block; background:#7f1d1d; color:#fecaca; }
+.status.approved,.status.settlement,.status.capture { display:block; background:#14532d; color:#86efac; }
+.status.rejected,.status.expire,.status.cancel,.status.deny { display:block; background:#7f1d1d; color:#fecaca; }
 .qris-img { max-width:220px; width:100%; border-radius:10px; display:block; margin:10px auto; background:#fff; padding:8px; }
 footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .notice { display:none; background:#713f1222; border:1px solid #a16207; color:#fbbf24; font-size:.8rem; padding:10px 12px; border-radius:8px; margin-bottom:12px; }
@@ -41,6 +41,7 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .pay-hint small { color:var(--muted); display:block; margin-bottom:4px; font-size:.72rem; }
 .pay-hint strong { color:var(--accent); font-size:1.25rem; }
 .error-box { background:#7f1d1d33; border:1px solid #7f1d1d; color:#fecaca; padding:14px; border-radius:10px; text-align:center; font-size:.85rem; }
+.midtrans-badge { display:inline-block; font-size:.68rem; background:#1e3a8a; color:#bfdbfe; padding:3px 9px; border-radius:99px; margin-bottom:10px; }
 </style>
 <base target="_blank">
 </head>
@@ -64,35 +65,55 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
     <div class="item-row"><span class="item-name" style="font-weight:700">Total</span><span class="item-price" id="item-total" style="font-size:1.05rem"></span></div>
   </div>
 
-  <div class="notice" id="notice-all-offline"></div>
-
-  <div class="card" id="method-card">
-    <h2>Metode Pembayaran</h2>
-    <div class="pay-hint">
-      <small>Transfer tepat sebesar</small>
-      <strong id="pay-amount">Rp 0</strong>
-    </div>
-    <div id="bank-list"><p style="color:var(--muted);font-size:.85rem">Memuat rekening...</p></div>
-    <div id="qris-block" style="display:none">
-      <label>QRIS</label>
-      <img class="qris-img" id="qris-img" alt="QRIS">
-      <p style="font-size:.75rem;color:var(--muted);text-align:center">Scan dengan aplikasi e-wallet / m-banking apa pun</p>
-    </div>
+  <!-- ====== JALUR MIDTRANS (tampil otomatis kalau diaktifkan admin) ====== -->
+  <div class="card" id="midtrans-card" style="display:none">
+    <span class="midtrans-badge">⚡ Pembayaran Otomatis</span>
+    <h2>Bayar dengan Midtrans</h2>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:10px">
+      Transfer VA, e-wallet (GoPay/OVO/Dana), QRIS, atau kartu — status pembayaran terverifikasi otomatis, tanpa perlu upload bukti transfer.
+    </p>
+    <label>Nama Pembeli</label>
+    <input type="text" id="mdt-buyer-name" placeholder="Nama Anda">
+    <label>Email (opsional)</label>
+    <input type="email" id="mdt-buyer-email" placeholder="email@contoh.com">
+    <button class="primary" id="btn-pay-midtrans">💳 Bayar Sekarang</button>
+    <div class="status" id="mdt-status"></div>
   </div>
 
-  <div class="card">
-    <h2>Konfirmasi Pembayaran</h2>
-    <label>Nama Pengirim (sesuai rekening)</label>
-    <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
-    <label>Metode Pembayaran</label>
-    <select id="f-metode"><option value="">— pilih —</option></select>
-    <label>Bukti Transfer (foto)</label>
-    <input type="file" id="f-bukti" accept="image/*">
-    <img id="f-bukti-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:8px" alt="">
-    <label>Catatan (opsional)</label>
-    <textarea id="f-catatan" rows="2"></textarea>
-    <button class="primary" id="btn-submit" disabled>📤 Kirim Konfirmasi Pembayaran</button>
-    <div class="status" id="pay-status"></div>
+  <p id="or-divider" style="display:none;text-align:center;color:var(--muted);font-size:.75rem;margin:6px 0 14px">— atau bayar manual —</p>
+
+  <!-- ====== JALUR MANUAL (fallback) ====== -->
+  <div id="manual-flow">
+    <div class="notice" id="notice-all-offline"></div>
+
+    <div class="card" id="method-card">
+      <h2>Metode Pembayaran</h2>
+      <div class="pay-hint">
+        <small>Transfer tepat sebesar</small>
+        <strong id="pay-amount">Rp 0</strong>
+      </div>
+      <div id="bank-list"><p style="color:var(--muted);font-size:.85rem">Memuat rekening...</p></div>
+      <div id="qris-block" style="display:none">
+        <label>QRIS</label>
+        <img class="qris-img" id="qris-img" alt="QRIS">
+        <p style="font-size:.75rem;color:var(--muted);text-align:center">Scan dengan aplikasi e-wallet / m-banking apa pun</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Konfirmasi Pembayaran</h2>
+      <label>Nama Pengirim (sesuai rekening)</label>
+      <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
+      <label>Metode Pembayaran</label>
+      <select id="f-metode"><option value="">— pilih —</option></select>
+      <label>Bukti Transfer (foto)</label>
+      <input type="file" id="f-bukti" accept="image/*">
+      <img id="f-bukti-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:8px" alt="">
+      <label>Catatan (opsional)</label>
+      <textarea id="f-catatan" rows="2"></textarea>
+      <button class="primary" id="btn-submit" disabled>📤 Kirim Konfirmasi Pembayaran</button>
+      <div class="status" id="pay-status"></div>
+    </div>
   </div>
 
   <footer id="page-footer">© 2026</footer>
@@ -101,6 +122,7 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCMdMWdmLQs1H2azteEXH0ldGhKEkf1R4E",
@@ -113,6 +135,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
+const functions = getFunctions(app); // region default us-central1, sesuaikan kalau Cloud Function di-deploy region lain
+const createSnapTokenFn = httpsCallable(functions, "createSnapToken");
 
 const params = new URLSearchParams(location.search);
 const merchantId = params.get("merchant") || "";
@@ -122,7 +146,8 @@ let itemPrice = parseInt(params.get("price") || "0", 10);
 let fee = 0;
 
 let settings = { title:"Checkout", sub:"", logo:"", qris:"", banks:[], showQrisFallback:true, footer:"" };
-let settingsLoaded = false, itemLoaded = false;
+let midtransSettings = { enabled:false, clientKey:"", isProduction:false };
+let settingsLoaded = false, itemLoaded = false, midtransLoaded = false;
 
 function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
 function orderTotal(){ return (Number(itemPrice)||0) + (Number(fee)||0); }
@@ -158,6 +183,16 @@ if (!merchantId) {
     settingsLoaded = true;
     applySettings();
   }, err => console.error("settings error:", err.message));
+
+  // ---- ambil pengaturan Midtrans dari dokumen PUBLIK (tidak mengandung serverKey) ----
+  onSnapshot(doc(db, "merchants", merchantId, "settings", "midtransPublic"), snap => {
+    if (snap.exists()) {
+      const m = snap.data();
+      midtransSettings = { enabled: !!m.enabled, clientKey: m.clientKey || "", isProduction: !!m.isProduction };
+    }
+    midtransLoaded = true;
+    applyMidtransUI();
+  }, err => { console.error("midtrans settings error:", err.message); midtransLoaded = true; applyMidtransUI(); });
 
   (async function loadItem() {
     if (!itemId) {
@@ -230,6 +265,14 @@ function applySettings() {
   maybeEnableSubmit();
 }
 
+// ---- tampilkan/sembunyikan kartu Midtrans ----
+function applyMidtransUI() {
+  if (!midtransLoaded) return;
+  const showMdt = midtransSettings.enabled && midtransSettings.clientKey;
+  document.getElementById("midtrans-card").style.display = showMdt ? "block" : "none";
+  document.getElementById("or-divider").style.display = showMdt ? "block" : "none";
+}
+
 document.getElementById("bank-list").addEventListener("click", e => {
   const btn = e.target.closest(".copy");
   if (btn) {
@@ -292,12 +335,13 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
       nominal: total,
       method: metode,
       note: catatan,
+      channel: "manual",
       proofBase64: buktiBase64,
       status: "pending",
       createdAt: new Date().toISOString()
     });
     alert("Konfirmasi terkirim! Tunggu verifikasi admin.");
-    watchStatus(ref.id);
+    watchStatus(ref.id, "pay-status");
   } catch (e) {
     alert("Gagal mengirim: " + e.message);
     btn.disabled = false;
@@ -305,21 +349,75 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
   }
 });
 
-function watchStatus(paymentId) {
+// ============ JALUR MIDTRANS ============
+let snapScriptLoaded = false;
+function loadSnapScript(isProduction, clientKey) {
+  return new Promise((resolve, reject) => {
+    if (snapScriptLoaded && window.snap) { resolve(); return; }
+    const script = document.createElement("script");
+    script.src = isProduction
+      ? "https://app.midtrans.com/snap/snap.js"
+      : "https://app.sandbox.midtrans.com/snap/snap.js";
+    script.setAttribute("data-client-key", clientKey);
+    script.onload = () => { snapScriptLoaded = true; resolve(); };
+    script.onerror = () => reject(new Error("Gagal memuat Snap.js"));
+    document.body.appendChild(script);
+  });
+}
+
+document.getElementById("btn-pay-midtrans").addEventListener("click", async () => {
+  const buyerName  = document.getElementById("mdt-buyer-name").value.trim();
+  const buyerEmail = document.getElementById("mdt-buyer-email").value.trim();
+  if (!buyerName) { alert("Nama pembeli wajib diisi."); return; }
+  if (!merchantId || !itemId) { alert("Link checkout tidak valid untuk pembayaran Midtrans (butuh parameter item)."); return; }
+
+  const btn = document.getElementById("btn-pay-midtrans");
+  btn.disabled = true;
+  btn.textContent = "Menyiapkan pembayaran...";
+
+  try {
+    const res = await createSnapTokenFn({ merchantId, itemId, buyerName, buyerEmail });
+    const { token, clientKey, isProduction, paymentId } = res.data;
+
+    await loadSnapScript(isProduction, clientKey);
+
+    window.snap.pay(token, {
+      onSuccess: () => watchStatus(paymentId, "mdt-status", true),
+      onPending: () => watchStatus(paymentId, "mdt-status", true),
+      onError:   (r) => { alert("Pembayaran gagal: " + (r.status_message || "")); btn.disabled = false; btn.textContent = "💳 Bayar Sekarang"; },
+      onClose:   () => { btn.disabled = false; btn.textContent = "💳 Bayar Sekarang"; }
+    });
+  } catch (e) {
+    alert("Gagal memulai pembayaran: " + e.message);
+    btn.disabled = false;
+    btn.textContent = "💳 Bayar Sekarang";
+  }
+});
+
+// ---- pantau status pembayaran real-time (dipakai jalur manual & Midtrans) ----
+function watchStatus(paymentId, elId, isMdt) {
   onSnapshot(doc(db, "merchants", merchantId, "payments", paymentId), snap => {
     if (!snap.exists()) return;
     const p = snap.data();
-    const el = document.getElementById("pay-status");
+    const el = document.getElementById(elId);
     el.className = "status " + p.status;
-    if (p.status === "pending") el.textContent = "⏳ Pembayaran Anda sedang diverifikasi admin.";
-    if (p.status === "approved") {
-      el.textContent = "✅ PEMBAYARAN DISETUJUI. Terima kasih!";
-      document.getElementById("btn-submit").style.display = "none";
-    }
-    if (p.status === "rejected") {
-      el.textContent = "❌ Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti.";
-      document.getElementById("btn-submit").disabled = false;
-      document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi";
+    const approvedLike = ["approved","settlement","capture"];
+    const rejectedLike = ["rejected","expire","cancel","deny"];
+    if (p.status === "pending") {
+      el.textContent = isMdt ? "⏳ Menunggu konfirmasi pembayaran dari Midtrans..." : "⏳ Pembayaran Anda sedang diverifikasi admin.";
+    } else if (approvedLike.includes(p.status)) {
+      el.textContent = "✅ PEMBAYARAN BERHASIL. Terima kasih!";
+      if (isMdt) document.getElementById("btn-pay-midtrans").style.display = "none";
+      else document.getElementById("btn-submit").style.display = "none";
+    } else if (rejectedLike.includes(p.status)) {
+      el.textContent = "❌ " + (isMdt ? "Pembayaran tidak berhasil / kedaluwarsa." : ("Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti."));
+      if (!isMdt) {
+        document.getElementById("btn-submit").disabled = false;
+        document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi";
+      } else {
+        document.getElementById("btn-pay-midtrans").disabled = false;
+        document.getElementById("btn-pay-midtrans").textContent = "💳 Coba Bayar Lagi";
+      }
     }
   });
 }

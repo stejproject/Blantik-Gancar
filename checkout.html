@@ -19,29 +19,26 @@ h1 { font-size:1.4rem; margin-bottom:6px; }
 .item-name { font-weight:600; font-size:.95rem; }
 .item-price { color:var(--accent); font-weight:700; }
 h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:12px; }
-.bank { display:flex; gap:12px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
-.bank input { accent-color:var(--accent); width:16px; height:16px; }
-.bank .info { flex:1; }
-.bank .name { font-weight:600; font-size:.9rem; display:block; }
-.bank .number { font-size:.8rem; color:var(--muted); font-family:monospace; letter-spacing:1px; }
-.bank .copy { font-size:.7rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:5px 10px; cursor:pointer; }
+.gopay-box { display:flex; gap:12px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:14px; margin-bottom:4px; }
+.gopay-box .info { flex:1; }
+.gopay-box .name { font-weight:600; font-size:.9rem; display:block; }
+.gopay-box .number { font-size:.95rem; color:var(--accent); font-family:monospace; letter-spacing:1px; font-weight:700; }
+.gopay-box .copy { font-size:.7rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:6px 12px; cursor:pointer; }
 label { display:block; font-size:.75rem; color:var(--muted); margin:12px 0 5px; }
-input, select, textarea { width:100%; background:#0f172a; border:1px solid #334155; color:var(--text); padding:11px 12px; border-radius:9px; font-size:.9rem; }
-input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); }
+input, textarea { width:100%; background:#0f172a; border:1px solid #334155; color:var(--text); padding:11px 12px; border-radius:9px; font-size:.9rem; }
+input:focus, textarea:focus { outline:none; border-color:var(--accent); }
 button.primary { width:100%; background:var(--accent); color:#052e16; font-weight:700; border:none; padding:13px; border-radius:10px; font-size:.95rem; cursor:pointer; margin-top:16px; }
 button.primary:disabled { opacity:.5; cursor:not-allowed; }
 .status { display:none; text-align:center; padding:14px; border-radius:10px; font-size:.85rem; margin-top:14px; }
-.status.pending { display:block; background:#713f12; color:#fde68a; }
-.status.approved,.status.settlement,.status.capture { display:block; background:#14532d; color:#86efac; }
-.status.rejected,.status.expire,.status.cancel,.status.deny { display:block; background:#7f1d1d; color:#fecaca; }
-.qris-img { max-width:220px; width:100%; border-radius:10px; display:block; margin:10px auto; background:#fff; padding:8px; }
+.status.pending  { display:block; background:#713f12; color:#fde68a; }
+.status.approved { display:block; background:#14532d; color:#86efac; }
+.status.rejected { display:block; background:#7f1d1d; color:#fecaca; }
 footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .notice { display:none; background:#713f1222; border:1px solid #a16207; color:#fbbf24; font-size:.8rem; padding:10px 12px; border-radius:8px; margin-bottom:12px; }
-.pay-hint { background:#0f172a; border:1px dashed #334155; border-radius:10px; padding:12px 14px; margin:8px 0 4px; text-align:center; }
+.pay-hint { background:#0f172a; border:1px dashed #334155; border-radius:10px; padding:12px 14px; margin:8px 0 12px; text-align:center; }
 .pay-hint small { color:var(--muted); display:block; margin-bottom:4px; font-size:.72rem; }
 .pay-hint strong { color:var(--accent); font-size:1.25rem; }
 .error-box { background:#7f1d1d33; border:1px solid #7f1d1d; color:#fecaca; padding:14px; border-radius:10px; text-align:center; font-size:.85rem; }
-.midtrans-badge { display:inline-block; font-size:.68rem; background:#1e3a8a; color:#bfdbfe; padding:3px 9px; border-radius:99px; margin-bottom:10px; }
 </style>
 <base target="_blank">
 </head>
@@ -65,47 +62,31 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
     <div class="item-row"><span class="item-name" style="font-weight:700">Total</span><span class="item-price" id="item-total" style="font-size:1.05rem"></span></div>
   </div>
 
-  <!-- ====== JALUR MIDTRANS (tampil otomatis kalau diaktifkan admin) ====== -->
-  <div class="card" id="midtrans-card" style="display:none">
-    <span class="midtrans-badge">⚡ Pembayaran Otomatis</span>
-    <h2>Bayar dengan Midtrans</h2>
-    <p style="font-size:.82rem;color:var(--muted);margin-bottom:10px">
-      Transfer VA, e-wallet (GoPay/OVO/Dana), QRIS, atau kartu — status pembayaran terverifikasi otomatis, tanpa perlu upload bukti transfer.
-    </p>
-    <label>Nama Pembeli</label>
-    <input type="text" id="mdt-buyer-name" placeholder="Nama Anda">
-    <label>Email (opsional)</label>
-    <input type="email" id="mdt-buyer-email" placeholder="email@contoh.com">
-    <button class="primary" id="btn-pay-midtrans">💳 Bayar Sekarang</button>
-    <div class="status" id="mdt-status"></div>
-  </div>
+  <div id="pay-flow">
+    <div class="notice" id="notice-no-gopay">⚠️ Toko ini belum mengatur nomor GoPay penerima.</div>
 
-  <p id="or-divider" style="display:none;text-align:center;color:var(--muted);font-size:.75rem;margin:6px 0 14px">— atau bayar manual —</p>
-
-  <!-- ====== JALUR MANUAL (fallback) ====== -->
-  <div id="manual-flow">
-    <div class="notice" id="notice-all-offline"></div>
-
-    <div class="card" id="method-card">
-      <h2>Metode Pembayaran</h2>
+    <div class="card" id="method-card" style="display:none">
+      <h2>Pembayaran via GoPay</h2>
       <div class="pay-hint">
         <small>Transfer tepat sebesar</small>
         <strong id="pay-amount">Rp 0</strong>
       </div>
-      <div id="bank-list"><p style="color:var(--muted);font-size:.85rem">Memuat rekening...</p></div>
-      <div id="qris-block" style="display:none">
-        <label>QRIS</label>
-        <img class="qris-img" id="qris-img" alt="QRIS">
-        <p style="font-size:.75rem;color:var(--muted);text-align:center">Scan dengan aplikasi e-wallet / m-banking apa pun</p>
+      <div class="gopay-box">
+        <div class="info">
+          <span class="name">GoPay <span style="color:var(--muted);font-weight:400;font-size:.75rem" id="gp-holder-label"></span></span>
+          <span class="number" id="gp-number-label">-</span>
+        </div>
+        <button class="copy" id="btn-copy-gopay">Salin</button>
       </div>
+      <p style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:8px">
+        Buka aplikasi Gojek → Bayar/Transfer → cari nomor di atas → masukkan nominal → konfirmasi.
+      </p>
     </div>
 
-    <div class="card">
+    <div class="card" id="confirm-card" style="display:none">
       <h2>Konfirmasi Pembayaran</h2>
-      <label>Nama Pengirim (sesuai rekening)</label>
+      <label>Nama Pengirim (sesuai akun GoPay)</label>
       <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
-      <label>Metode Pembayaran</label>
-      <select id="f-metode"><option value="">— pilih —</option></select>
       <label>Bukti Transfer (foto)</label>
       <input type="file" id="f-bukti" accept="image/*">
       <img id="f-bukti-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:8px" alt="">
@@ -122,7 +103,6 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCMdMWdmLQs1H2azteEXH0ldGhKEkf1R4E",
@@ -135,8 +115,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
-const functions = getFunctions(app); // region default us-central1, sesuaikan kalau Cloud Function di-deploy region lain
-const createSnapTokenFn = httpsCallable(functions, "createSnapToken");
 
 const params = new URLSearchParams(location.search);
 const merchantId = params.get("merchant") || "";
@@ -144,10 +122,9 @@ let itemId    = params.get("id") || "";
 let itemName  = params.get("item")  || "Produk / Layanan";
 let itemPrice = parseInt(params.get("price") || "0", 10);
 let fee = 0;
+let gopay = { number: "", holder: "" };
 
-let settings = { title:"Checkout", sub:"", logo:"", qris:"", banks:[], showQrisFallback:true, footer:"" };
-let midtransSettings = { enabled:false, clientKey:"", isProduction:false };
-let settingsLoaded = false, itemLoaded = false, midtransLoaded = false;
+let settingsLoaded = false, itemLoaded = false;
 
 function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
 function orderTotal(){ return (Number(itemPrice)||0) + (Number(fee)||0); }
@@ -167,40 +144,17 @@ function renderTotals() {
 
 if (!merchantId) {
   document.getElementById("error-merchant").style.display = "block";
-  document.getElementById("item-name").textContent = "—";
-  document.getElementById("item-price").textContent = "";
-  document.getElementById("item-total").textContent = "Rp 0";
-  document.getElementById("pay-amount").textContent = "Rp 0";
-  document.getElementById("bank-list").innerHTML = '<p style="color:var(--muted);font-size:.85rem">Merchant tidak ditemukan.</p>';
+  document.getElementById("order-card").style.display = "none";
+  document.getElementById("pay-flow").style.display = "none";
 } else {
   onSnapshot(doc(db, "merchants", merchantId, "settings", "main"), snap => {
-    if (!snap.exists()) {
-      settingsLoaded = true;
-      applySettings();
-      return;
-    }
-    settings = { ...settings, ...snap.data() };
     settingsLoaded = true;
-    applySettings();
-  }, err => console.error("settings error:", err.message));
-
-  // ---- ambil pengaturan Midtrans dari dokumen PUBLIK (tidak mengandung serverKey) ----
-  onSnapshot(doc(db, "merchants", merchantId, "settings", "midtransPublic"), snap => {
-    if (snap.exists()) {
-      const m = snap.data();
-      midtransSettings = { enabled: !!m.enabled, clientKey: m.clientKey || "", isProduction: !!m.isProduction };
-    }
-    midtransLoaded = true;
-    applyMidtransUI();
-  }, err => { console.error("midtrans settings error:", err.message); midtransLoaded = true; applyMidtransUI(); });
+    if (!snap.exists()) { applySettings({}); return; }
+    applySettings(snap.data());
+  }, err => { console.error("settings error:", err.message); settingsLoaded = true; applySettings({}); });
 
   (async function loadItem() {
-    if (!itemId) {
-      renderTotals();
-      itemLoaded = true;
-      maybeEnableSubmit();
-      return;
-    }
+    if (!itemId) { renderTotals(); itemLoaded = true; maybeEnableSubmit(); return; }
     try {
       const snap = await getDoc(doc(db, "merchants", merchantId, "items", itemId));
       if (snap.exists()) {
@@ -216,71 +170,34 @@ if (!merchantId) {
   })();
 }
 
-function applySettings() {
-  if (settings.title) { document.title = settings.title; document.getElementById("page-title").textContent = settings.title; }
-  if (settings.sub)   document.getElementById("page-sub").textContent = settings.sub;
-  if (settings.logo)  { const l = document.getElementById("page-logo"); l.src = settings.logo; l.style.display = "block"; }
-  if (settings.footer) document.getElementById("page-footer").textContent = settings.footer;
+function applySettings(s) {
+  if (s.title)  { document.title = s.title; document.getElementById("page-title").textContent = s.title; }
+  if (s.sub)    document.getElementById("page-sub").textContent = s.sub;
+  if (s.logo)   { const l = document.getElementById("page-logo"); l.src = s.logo; l.style.display = "block"; }
+  if (s.footer) document.getElementById("page-footer").textContent = s.footer;
 
-  const list = document.getElementById("bank-list");
-  list.innerHTML = "";
-  const select = document.getElementById("f-metode");
-  select.innerHTML = '<option value="">— pilih —</option>';
+  gopay = s.gopay || { number: "", holder: "" };
 
-  const activeBanks = (settings.banks || []).filter(b => b.active !== false);
-  activeBanks.forEach((b, i) => {
-    const div = document.createElement("div");
-    div.className = "bank";
-    div.innerHTML = `
-      <input type="radio" name="bank" value="${b.code}" id="b${i}" ${i===0?"checked":""}>
-      <label class="info" for="b${i}" style="cursor:pointer">
-        <span class="name">${b.bank} <span style="color:var(--muted);font-weight:400;font-size:.75rem">a.n. ${b.holder||"-"}</span></span>
-        <span class="number">${b.number}</span>
-      </label>
-      <button class="copy" data-num="${b.number}">Salin</button>`;
-    list.appendChild(div);
-    const opt = document.createElement("option"); opt.value = b.bank; opt.textContent = b.bank; select.appendChild(opt);
-  });
-
-  const qrisBlock = document.getElementById("qris-block");
-  if (settings.qris && (settings.showQrisFallback || activeBanks.length === 0)) {
-    document.getElementById("qris-img").src = settings.qris;
-    qrisBlock.style.display = "block";
-    if (settings.qris && !activeBanks.some(b => b.code === "qris")) {
-      const opt = document.createElement("option"); opt.value = "QRIS"; opt.textContent = "QRIS"; select.appendChild(opt);
-    }
+  if (gopay.number) {
+    document.getElementById("notice-no-gopay").style.display = "none";
+    document.getElementById("method-card").style.display = "block";
+    document.getElementById("confirm-card").style.display = "block";
+    document.getElementById("gp-number-label").textContent = gopay.number;
+    document.getElementById("gp-holder-label").textContent = gopay.holder ? "a.n. " + gopay.holder : "";
   } else {
-    qrisBlock.style.display = "none";
-  }
-
-  if (activeBanks.length === 0 && !settings.qris) {
-    document.getElementById("notice-all-offline").textContent = "⚠️ Belum ada metode pembayaran aktif.";
-    document.getElementById("notice-all-offline").style.display = "block";
-  } else if (activeBanks.length === 0) {
-    document.getElementById("notice-all-offline").textContent = "⚠️ Transfer bank sedang tidak tersedia. Silakan gunakan QRIS.";
-    document.getElementById("notice-all-offline").style.display = "block";
-  } else {
-    document.getElementById("notice-all-offline").style.display = "none";
+    document.getElementById("notice-no-gopay").style.display = "block";
+    document.getElementById("method-card").style.display = "none";
+    document.getElementById("confirm-card").style.display = "none";
   }
   maybeEnableSubmit();
 }
 
-// ---- tampilkan/sembunyikan kartu Midtrans ----
-function applyMidtransUI() {
-  if (!midtransLoaded) return;
-  const showMdt = midtransSettings.enabled && midtransSettings.clientKey;
-  document.getElementById("midtrans-card").style.display = showMdt ? "block" : "none";
-  document.getElementById("or-divider").style.display = showMdt ? "block" : "none";
-}
-
-document.getElementById("bank-list").addEventListener("click", e => {
-  const btn = e.target.closest(".copy");
-  if (btn) {
-    navigator.clipboard.writeText(btn.dataset.num).then(() => {
-      btn.textContent = "✓";
-      setTimeout(() => btn.textContent = "Salin", 1500);
-    });
-  }
+document.getElementById("btn-copy-gopay").addEventListener("click", () => {
+  navigator.clipboard.writeText(gopay.number).then(() => {
+    const btn = document.getElementById("btn-copy-gopay");
+    btn.textContent = "✓";
+    setTimeout(() => btn.textContent = "Salin", 1500);
+  });
 });
 
 document.getElementById("f-bukti").addEventListener("change", e => {
@@ -297,18 +214,17 @@ document.getElementById("f-bukti").addEventListener("change", e => {
 });
 
 function maybeEnableSubmit() {
-  document.getElementById("btn-submit").disabled = !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0);
+  document.getElementById("btn-submit").disabled = !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0 && gopay.number);
 }
 
 document.getElementById("btn-submit").addEventListener("click", async () => {
   const nama    = document.getElementById("f-nama").value.trim();
-  const metode  = document.getElementById("f-metode").value;
   const catatan = document.getElementById("f-catatan").value.trim();
   const file    = document.getElementById("f-bukti").files[0];
   const total   = orderTotal();
 
   if (!merchantId) { alert("Link checkout tidak valid."); return; }
-  if (!nama || !metode) { alert("Nama pengirim dan metode wajib diisi!"); return; }
+  if (!nama) { alert("Nama pengirim wajib diisi!"); return; }
   if (total <= 0) { alert("Total pesanan tidak valid."); return; }
 
   const btn = document.getElementById("btn-submit");
@@ -333,15 +249,14 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
       total,
       senderName: nama,
       nominal: total,
-      method: metode,
+      method: "GoPay",
       note: catatan,
-      channel: "manual",
       proofBase64: buktiBase64,
       status: "pending",
       createdAt: new Date().toISOString()
     });
     alert("Konfirmasi terkirim! Tunggu verifikasi admin.");
-    watchStatus(ref.id, "pay-status");
+    watchStatus(ref.id);
   } catch (e) {
     alert("Gagal mengirim: " + e.message);
     btn.disabled = false;
@@ -349,75 +264,21 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
   }
 });
 
-// ============ JALUR MIDTRANS ============
-let snapScriptLoaded = false;
-function loadSnapScript(isProduction, clientKey) {
-  return new Promise((resolve, reject) => {
-    if (snapScriptLoaded && window.snap) { resolve(); return; }
-    const script = document.createElement("script");
-    script.src = isProduction
-      ? "https://app.midtrans.com/snap/snap.js"
-      : "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.setAttribute("data-client-key", clientKey);
-    script.onload = () => { snapScriptLoaded = true; resolve(); };
-    script.onerror = () => reject(new Error("Gagal memuat Snap.js"));
-    document.body.appendChild(script);
-  });
-}
-
-document.getElementById("btn-pay-midtrans").addEventListener("click", async () => {
-  const buyerName  = document.getElementById("mdt-buyer-name").value.trim();
-  const buyerEmail = document.getElementById("mdt-buyer-email").value.trim();
-  if (!buyerName) { alert("Nama pembeli wajib diisi."); return; }
-  if (!merchantId || !itemId) { alert("Link checkout tidak valid untuk pembayaran Midtrans (butuh parameter item)."); return; }
-
-  const btn = document.getElementById("btn-pay-midtrans");
-  btn.disabled = true;
-  btn.textContent = "Menyiapkan pembayaran...";
-
-  try {
-    const res = await createSnapTokenFn({ merchantId, itemId, buyerName, buyerEmail });
-    const { token, clientKey, isProduction, paymentId } = res.data;
-
-    await loadSnapScript(isProduction, clientKey);
-
-    window.snap.pay(token, {
-      onSuccess: () => watchStatus(paymentId, "mdt-status", true),
-      onPending: () => watchStatus(paymentId, "mdt-status", true),
-      onError:   (r) => { alert("Pembayaran gagal: " + (r.status_message || "")); btn.disabled = false; btn.textContent = "💳 Bayar Sekarang"; },
-      onClose:   () => { btn.disabled = false; btn.textContent = "💳 Bayar Sekarang"; }
-    });
-  } catch (e) {
-    alert("Gagal memulai pembayaran: " + e.message);
-    btn.disabled = false;
-    btn.textContent = "💳 Bayar Sekarang";
-  }
-});
-
-// ---- pantau status pembayaran real-time (dipakai jalur manual & Midtrans) ----
-function watchStatus(paymentId, elId, isMdt) {
+function watchStatus(paymentId) {
   onSnapshot(doc(db, "merchants", merchantId, "payments", paymentId), snap => {
     if (!snap.exists()) return;
     const p = snap.data();
-    const el = document.getElementById(elId);
+    const el = document.getElementById("pay-status");
     el.className = "status " + p.status;
-    const approvedLike = ["approved","settlement","capture"];
-    const rejectedLike = ["rejected","expire","cancel","deny"];
     if (p.status === "pending") {
-      el.textContent = isMdt ? "⏳ Menunggu konfirmasi pembayaran dari Midtrans..." : "⏳ Pembayaran Anda sedang diverifikasi admin.";
-    } else if (approvedLike.includes(p.status)) {
-      el.textContent = "✅ PEMBAYARAN BERHASIL. Terima kasih!";
-      if (isMdt) document.getElementById("btn-pay-midtrans").style.display = "none";
-      else document.getElementById("btn-submit").style.display = "none";
-    } else if (rejectedLike.includes(p.status)) {
-      el.textContent = "❌ " + (isMdt ? "Pembayaran tidak berhasil / kedaluwarsa." : ("Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti."));
-      if (!isMdt) {
-        document.getElementById("btn-submit").disabled = false;
-        document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi";
-      } else {
-        document.getElementById("btn-pay-midtrans").disabled = false;
-        document.getElementById("btn-pay-midtrans").textContent = "💳 Coba Bayar Lagi";
-      }
+      el.textContent = "⏳ Pembayaran Anda sedang diverifikasi admin.";
+    } else if (p.status === "approved") {
+      el.textContent = "✅ PEMBAYARAN DISETUJUI. Terima kasih!";
+      document.getElementById("btn-submit").style.display = "none";
+    } else if (p.status === "rejected") {
+      el.textContent = "❌ Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti.";
+      document.getElementById("btn-submit").disabled = false;
+      document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi";
     }
   });
 }

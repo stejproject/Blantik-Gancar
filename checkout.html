@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Checkout</title>
 <style>
-:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --text:#e2e8f0; --muted:#94a3b8; }
+:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --gopay:#00AED6; --text:#e2e8f0; --muted:#94a3b8; }
 * { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
 body { background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; padding:24px 16px; }
 .wrap { width:100%; max-width:480px; }
@@ -19,28 +19,35 @@ h1 { font-size:1.4rem; margin-bottom:6px; }
 .item-name { font-weight:600; font-size:.95rem; }
 .item-price { color:var(--accent); font-weight:700; }
 h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:12px; }
-.gopay-box { display:flex; gap:12px; align-items:center; background:#0f172a; border:1px solid #334155; border-radius:10px; padding:14px; margin-bottom:4px; }
-.gopay-box .info { flex:1; }
-.gopay-box .name { font-weight:600; font-size:.9rem; display:block; }
-.gopay-box .number { font-size:.95rem; color:var(--accent); font-family:monospace; letter-spacing:1px; font-weight:700; }
-.gopay-box .copy { font-size:.7rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:6px 12px; cursor:pointer; }
 label { display:block; font-size:.75rem; color:var(--muted); margin:12px 0 5px; }
 input, textarea { width:100%; background:#0f172a; border:1px solid #334155; color:var(--text); padding:11px 12px; border-radius:9px; font-size:.9rem; }
 input:focus, textarea:focus { outline:none; border-color:var(--accent); }
 button.primary { width:100%; background:var(--accent); color:#052e16; font-weight:700; border:none; padding:13px; border-radius:10px; font-size:.95rem; cursor:pointer; margin-top:16px; }
 button.primary:disabled { opacity:.5; cursor:not-allowed; }
+a.gopay-btn, button.gopay-btn {
+  width:100%; background:var(--gopay); color:#042f2e; font-weight:700; border:none; padding:14px;
+  border-radius:10px; font-size:.95rem; cursor:pointer; margin-top:12px; text-decoration:none;
+  display:block; text-align:center;
+}
+button.copy-sm { font-size:.75rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:6px 12px; cursor:pointer; }
 .status { display:none; text-align:center; padding:14px; border-radius:10px; font-size:.85rem; margin-top:14px; }
-.status.pending  { display:block; background:#713f12; color:#fde68a; }
+.status.pending { display:block; background:#713f12; color:#fde68a; }
 .status.approved { display:block; background:#14532d; color:#86efac; }
 .status.rejected { display:block; background:#7f1d1d; color:#fecaca; }
+.qris-img { max-width:220px; width:100%; border-radius:10px; display:block; margin:10px auto; background:#fff; padding:8px; }
 footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .notice { display:none; background:#713f1222; border:1px solid #a16207; color:#fbbf24; font-size:.8rem; padding:10px 12px; border-radius:8px; margin-bottom:12px; }
 .pay-hint { background:#0f172a; border:1px dashed #334155; border-radius:10px; padding:12px 14px; margin:8px 0 12px; text-align:center; }
 .pay-hint small { color:var(--muted); display:block; margin-bottom:4px; font-size:.72rem; }
 .pay-hint strong { color:var(--accent); font-size:1.25rem; }
 .error-box { background:#7f1d1d33; border:1px solid #7f1d1d; color:#fecaca; padding:14px; border-radius:10px; text-align:center; font-size:.85rem; }
+.gopay-box { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:14px; }
+.gopay-box .name { font-weight:600; font-size:.95rem; margin-top:6px; }
+.gopay-box .number { font-family:monospace; letter-spacing:1px; color:#86efac; font-size:1rem; margin:8px 0; font-weight:700; }
+.gopay-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.badge-gp { display:inline-block; background:var(--gopay); color:#042f2e; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:99px; }
+.hint { font-size:.72rem; color:var(--muted); text-align:center; margin-top:10px; line-height:1.45; }
 </style>
-<base target="_blank">
 </head>
 <body>
 <div class="wrap">
@@ -51,50 +58,57 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
   </header>
 
   <div id="error-merchant" class="error-box" style="display:none;margin-bottom:16px">
-    Link checkout tidak valid.<br>
-    Pastikan memakai link dari admin yang berisi parameter <b>merchant</b>.
+    Link checkout tidak valid.<br>Pakai link dari admin yang berisi parameter <b>merchant</b>.
   </div>
 
-  <div class="card" id="order-card">
+  <div class="card">
     <h2>Ringkasan Pesanan</h2>
     <div class="item-row"><span class="item-name" id="item-name">Memuat...</span><span class="item-price" id="item-price"></span></div>
     <div class="item-row" id="fee-row" style="display:none"><span class="item-name">Biaya Layanan</span><span class="item-price" id="item-fee"></span></div>
     <div class="item-row"><span class="item-name" style="font-weight:700">Total</span><span class="item-price" id="item-total" style="font-size:1.05rem"></span></div>
   </div>
 
-  <div id="pay-flow">
-    <div class="notice" id="notice-no-gopay">⚠️ Toko ini belum mengatur nomor GoPay penerima.</div>
+  <div class="notice" id="notice-offline"></div>
 
-    <div class="card" id="method-card" style="display:none">
-      <h2>Pembayaran via GoPay</h2>
-      <div class="pay-hint">
-        <small>Transfer tepat sebesar</small>
-        <strong id="pay-amount">Rp 0</strong>
-      </div>
+  <div class="card" id="method-card">
+    <h2>Pembayaran via GoPay</h2>
+    <div class="pay-hint">
+      <small>Transfer tepat sebesar</small>
+      <strong id="pay-amount">Rp 0</strong>
+    </div>
+
+    <div id="gopay-block" style="display:none">
       <div class="gopay-box">
-        <div class="info">
-          <span class="name">GoPay <span style="color:var(--muted);font-weight:400;font-size:.75rem" id="gp-holder-label"></span></span>
-          <span class="number" id="gp-number-label">-</span>
+        <span class="badge-gp">GoPay</span>
+        <div class="name" id="gp-name">—</div>
+        <div class="gopay-row">
+          <div class="number" id="gp-number">—</div>
+          <button type="button" class="copy-sm" id="btn-copy">Salin</button>
         </div>
-        <button class="copy" id="btn-copy-gopay">Salin</button>
       </div>
-      <p style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:8px">
-        Buka aplikasi Gojek → Bayar/Transfer → cari nomor di atas → masukkan nominal → konfirmasi.
-      </p>
+      <!-- Tombol utama: buka deep link + salin nomor otomatis -->
+      <button type="button" class="gopay-btn" id="btn-open-gopay">💚 Buka GoPay &amp; Salin Nomor</button>
+      <p class="hint">Satu ketuk: nomor disalin + aplikasi GoPay/Gojek terbuka ke menu transfer. Masukkan nominal di atas, lalu kembali ke sini untuk upload bukti.</p>
     </div>
 
-    <div class="card" id="confirm-card" style="display:none">
-      <h2>Konfirmasi Pembayaran</h2>
-      <label>Nama Pengirim (sesuai akun GoPay)</label>
-      <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
-      <label>Bukti Transfer (foto)</label>
-      <input type="file" id="f-bukti" accept="image/*">
-      <img id="f-bukti-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:8px" alt="">
-      <label>Catatan (opsional)</label>
-      <textarea id="f-catatan" rows="2"></textarea>
-      <button class="primary" id="btn-submit" disabled>📤 Kirim Konfirmasi Pembayaran</button>
-      <div class="status" id="pay-status"></div>
+    <div id="qris-block" style="display:none">
+      <label>QRIS</label>
+      <img class="qris-img" id="qris-img" alt="QRIS">
+      <p class="hint">Scan dengan e-wallet / m-banking</p>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Konfirmasi Pembayaran</h2>
+    <label>Nama Pengirim (sesuai akun GoPay)</label>
+    <input type="text" id="f-nama" placeholder="Contoh: Budi Santoso">
+    <label>Bukti Transfer (foto)</label>
+    <input type="file" id="f-bukti" accept="image/*">
+    <img id="f-bukti-preview" style="display:none;max-width:100%;border-radius:8px;margin-top:8px" alt="">
+    <label>Catatan (opsional)</label>
+    <textarea id="f-catatan" rows="2"></textarea>
+    <button class="primary" id="btn-submit" disabled>📤 Kirim Konfirmasi Pembayaran</button>
+    <div class="status" id="pay-status"></div>
   </div>
 
   <footer id="page-footer">© 2026</footer>
@@ -114,91 +128,143 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const db = getFirestore(app);
 
 const params = new URLSearchParams(location.search);
 const merchantId = params.get("merchant") || "";
-let itemId    = params.get("id") || "";
-let itemName  = params.get("item")  || "Produk / Layanan";
+let itemId = params.get("id") || "";
+let itemName = params.get("item") || "Produk / Layanan";
 let itemPrice = parseInt(params.get("price") || "0", 10);
 let fee = 0;
-let gopay = { number: "", holder: "" };
-
+let settings = { title:"Checkout", sub:"", logo:"", qris:"", showQrisFallback:false, footer:"", gopay:null };
 let settingsLoaded = false, itemLoaded = false;
+let gopayNumber = "";
+let gopayDeepLink = "";
 
 function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
 function orderTotal(){ return (Number(itemPrice)||0) + (Number(fee)||0); }
+function to62(p){
+  p = String(p||"").replace(/\D/g,"");
+  if (p.startsWith("0")) p = "62" + p.slice(1);
+  if (p && !p.startsWith("62")) p = "62" + p;
+  return p;
+}
 
 function renderTotals() {
-  document.getElementById("item-name").textContent  = itemName;
+  document.getElementById("item-name").textContent = itemName;
   document.getElementById("item-price").textContent = fmt(itemPrice);
   document.getElementById("item-total").textContent = fmt(orderTotal());
   document.getElementById("pay-amount").textContent = fmt(orderTotal());
   if (fee) {
     document.getElementById("fee-row").style.display = "flex";
     document.getElementById("item-fee").textContent = fmt(fee);
-  } else {
-    document.getElementById("fee-row").style.display = "none";
+  } else document.getElementById("fee-row").style.display = "none";
+}
+
+function copyNumber() {
+  if (!gopayNumber) return Promise.resolve();
+  return navigator.clipboard.writeText(gopayNumber).catch(() => {
+    // fallback lama
+    const ta = document.createElement("textarea");
+    ta.value = gopayNumber;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch(_) {}
+    document.body.removeChild(ta);
+  });
+}
+
+/** Satu aksi: salin nomor + buka deep link GoPay */
+function openGopay() {
+  const btn = document.getElementById("btn-open-gopay");
+  copyNumber().then(() => {
+    btn.textContent = "✓ Nomor disalin — membuka GoPay...";
+    setTimeout(() => { btn.textContent = "💚 Buka GoPay & Salin Nomor"; }, 2500);
+  });
+  // buka deep link (harus dipicu klik user agar tidak diblok browser)
+  if (gopayDeepLink) {
+    window.location.href = gopayDeepLink;
   }
 }
 
 if (!merchantId) {
   document.getElementById("error-merchant").style.display = "block";
-  document.getElementById("order-card").style.display = "none";
-  document.getElementById("pay-flow").style.display = "none";
+  document.getElementById("item-name").textContent = "—";
+  document.getElementById("item-total").textContent = "Rp 0";
+  document.getElementById("pay-amount").textContent = "Rp 0";
 } else {
   onSnapshot(doc(db, "merchants", merchantId, "settings", "main"), snap => {
+    if (snap.exists()) settings = { ...settings, ...snap.data() };
     settingsLoaded = true;
-    if (!snap.exists()) { applySettings({}); return; }
-    applySettings(snap.data());
-  }, err => { console.error("settings error:", err.message); settingsLoaded = true; applySettings({}); });
+    applySettings();
+  }, err => console.error(err.message));
 
   (async function loadItem() {
-    if (!itemId) { renderTotals(); itemLoaded = true; maybeEnableSubmit(); return; }
+    if (!itemId) { renderTotals(); itemLoaded = true; maybeEnable(); return; }
     try {
       const snap = await getDoc(doc(db, "merchants", merchantId, "items", itemId));
       if (snap.exists()) {
         const it = snap.data();
-        itemName  = it.name || "Item";
+        itemName = it.name || "Item";
         itemPrice = Number(it.price) || 0;
-        fee       = Number(it.fee) || 0;
+        fee = Number(it.fee) || 0;
       }
     } catch(e) { console.error(e.message); }
     renderTotals();
     itemLoaded = true;
-    maybeEnableSubmit();
+    maybeEnable();
   })();
 }
 
-function applySettings(s) {
-  if (s.title)  { document.title = s.title; document.getElementById("page-title").textContent = s.title; }
-  if (s.sub)    document.getElementById("page-sub").textContent = s.sub;
-  if (s.logo)   { const l = document.getElementById("page-logo"); l.src = s.logo; l.style.display = "block"; }
-  if (s.footer) document.getElementById("page-footer").textContent = s.footer;
+function applySettings() {
+  if (settings.title) { document.title = settings.title; document.getElementById("page-title").textContent = settings.title; }
+  if (settings.sub) document.getElementById("page-sub").textContent = settings.sub;
+  if (settings.logo) { const l = document.getElementById("page-logo"); l.src = settings.logo; l.style.display = "block"; }
+  if (settings.footer) document.getElementById("page-footer").textContent = settings.footer;
 
-  gopay = s.gopay || { number: "", holder: "" };
+  const g = settings.gopay || {};
+  const gopayOk = g.active !== false && g.number;
+  const gpBlock = document.getElementById("gopay-block");
 
-  if (gopay.number) {
-    document.getElementById("notice-no-gopay").style.display = "none";
-    document.getElementById("method-card").style.display = "block";
-    document.getElementById("confirm-card").style.display = "block";
-    document.getElementById("gp-number-label").textContent = gopay.number;
-    document.getElementById("gp-holder-label").textContent = gopay.holder ? "a.n. " + gopay.holder : "";
+  if (gopayOk) {
+    gpBlock.style.display = "block";
+    gopayNumber = g.number;
+    gopayDeepLink = g.deepLink || ("gojek://gopay/transfer?phone=" + to62(g.number));
+    document.getElementById("gp-name").textContent = "a.n. " + (g.holder || "-");
+    document.getElementById("gp-number").textContent = g.number;
+
+    document.getElementById("btn-copy").onclick = () => {
+      copyNumber().then(() => {
+        const b = document.getElementById("btn-copy");
+        b.textContent = "✓";
+        setTimeout(() => b.textContent = "Salin", 1500);
+      });
+    };
+    document.getElementById("btn-open-gopay").onclick = openGopay;
   } else {
-    document.getElementById("notice-no-gopay").style.display = "block";
-    document.getElementById("method-card").style.display = "none";
-    document.getElementById("confirm-card").style.display = "none";
+    gpBlock.style.display = "none";
+    gopayNumber = "";
+    gopayDeepLink = "";
   }
-  maybeEnableSubmit();
+
+  const qrisBlock = document.getElementById("qris-block");
+  if (settings.qris && (settings.showQrisFallback || !gopayOk)) {
+    document.getElementById("qris-img").src = settings.qris;
+    qrisBlock.style.display = "block";
+  } else qrisBlock.style.display = "none";
+
+  const notice = document.getElementById("notice-offline");
+  if (!gopayOk && !settings.qris) {
+    notice.textContent = "⚠️ Belum ada metode pembayaran aktif.";
+    notice.style.display = "block";
+  } else notice.style.display = "none";
+
+  maybeEnable();
 }
 
-document.getElementById("btn-copy-gopay").addEventListener("click", () => {
-  navigator.clipboard.writeText(gopay.number).then(() => {
-    const btn = document.getElementById("btn-copy-gopay");
-    btn.textContent = "✓";
-    setTimeout(() => btn.textContent = "Salin", 1500);
-  });
-});
+function maybeEnable() {
+  document.getElementById("btn-submit").disabled = !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0);
+}
 
 document.getElementById("f-bukti").addEventListener("change", e => {
   const f = e.target.files[0];
@@ -213,27 +279,22 @@ document.getElementById("f-bukti").addEventListener("change", e => {
   r.readAsDataURL(f);
 });
 
-function maybeEnableSubmit() {
-  document.getElementById("btn-submit").disabled = !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0 && gopay.number);
-}
-
 document.getElementById("btn-submit").addEventListener("click", async () => {
-  const nama    = document.getElementById("f-nama").value.trim();
+  const nama = document.getElementById("f-nama").value.trim();
   const catatan = document.getElementById("f-catatan").value.trim();
-  const file    = document.getElementById("f-bukti").files[0];
-  const total   = orderTotal();
-
-  if (!merchantId) { alert("Link checkout tidak valid."); return; }
-  if (!nama) { alert("Nama pengirim wajib diisi!"); return; }
-  if (total <= 0) { alert("Total pesanan tidak valid."); return; }
+  const file = document.getElementById("f-bukti").files[0];
+  const total = orderTotal();
+  if (!merchantId) { alert("Link tidak valid"); return; }
+  if (!nama) { alert("Nama pengirim wajib diisi"); return; }
+  if (total <= 0) { alert("Total tidak valid"); return; }
 
   const btn = document.getElementById("btn-submit");
   btn.disabled = true;
   btn.textContent = "Mengirim...";
 
-  let buktiBase64 = null;
+  let bukti = null;
   if (file) {
-    buktiBase64 = await new Promise(res => {
+    bukti = await new Promise(res => {
       const r = new FileReader();
       r.onload = ev => res(ev.target.result);
       r.readAsDataURL(file);
@@ -242,46 +303,34 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
 
   try {
     const ref = await addDoc(collection(db, "merchants", merchantId, "payments"), {
-      itemId,
-      item: itemName,
-      price: itemPrice,
-      fee,
-      total,
-      senderName: nama,
-      nominal: total,
-      method: "GoPay",
-      note: catatan,
-      proofBase64: buktiBase64,
-      status: "pending",
+      itemId, item: itemName, price: itemPrice, fee, total,
+      senderName: nama, nominal: total, method: "GoPay", note: catatan,
+      channel: "gopay", proofBase64: bukti, status: "pending",
       createdAt: new Date().toISOString()
     });
-    alert("Konfirmasi terkirim! Tunggu verifikasi admin.");
-    watchStatus(ref.id);
+    alert("Konfirmasi terkirim! Tunggu verifikasi.");
+    onSnapshot(doc(db, "merchants", merchantId, "payments", ref.id), snap => {
+      if (!snap.exists()) return;
+      const p = snap.data();
+      const el = document.getElementById("pay-status");
+      el.className = "status " + p.status;
+      if (p.status === "pending") el.textContent = "⏳ Sedang diverifikasi admin.";
+      if (p.status === "approved") {
+        el.textContent = "✅ PEMBAYARAN DISETUJUI. Terima kasih!";
+        btn.style.display = "none";
+      }
+      if (p.status === "rejected") {
+        el.textContent = "❌ Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — kirim ulang bukti.";
+        btn.disabled = false;
+        btn.textContent = "📤 Kirim Ulang";
+      }
+    });
   } catch (e) {
-    alert("Gagal mengirim: " + e.message);
+    alert("Gagal: " + e.message);
     btn.disabled = false;
     btn.textContent = "📤 Kirim Konfirmasi Pembayaran";
   }
 });
-
-function watchStatus(paymentId) {
-  onSnapshot(doc(db, "merchants", merchantId, "payments", paymentId), snap => {
-    if (!snap.exists()) return;
-    const p = snap.data();
-    const el = document.getElementById("pay-status");
-    el.className = "status " + p.status;
-    if (p.status === "pending") {
-      el.textContent = "⏳ Pembayaran Anda sedang diverifikasi admin.";
-    } else if (p.status === "approved") {
-      el.textContent = "✅ PEMBAYARAN DISETUJUI. Terima kasih!";
-      document.getElementById("btn-submit").style.display = "none";
-    } else if (p.status === "rejected") {
-      el.textContent = "❌ Ditolak" + (p.rejectReason ? ": " + p.rejectReason : "") + " — silakan kirim ulang bukti.";
-      document.getElementById("btn-submit").disabled = false;
-      document.getElementById("btn-submit").textContent = "📤 Kirim Ulang Konfirmasi";
-    }
-  });
-}
 </script>
 </body>
 </html>

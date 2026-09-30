@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Checkout</title>
 <style>
-:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --gopay:#00AED6; --text:#e2e8f0; --muted:#94a3b8; }
+:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --gopay:#00AED6; --gojek:#00AA13; --text:#e2e8f0; --muted:#94a3b8; }
 * { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
 body { background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; padding:24px 16px; }
 .wrap { width:100%; max-width:480px; }
@@ -24,11 +24,12 @@ input, textarea { width:100%; background:#0f172a; border:1px solid #334155; colo
 input:focus, textarea:focus { outline:none; border-color:var(--accent); }
 button.primary { width:100%; background:var(--accent); color:#052e16; font-weight:700; border:none; padding:13px; border-radius:10px; font-size:.95rem; cursor:pointer; margin-top:16px; }
 button.primary:disabled { opacity:.5; cursor:not-allowed; }
-a.gopay-btn, button.gopay-btn {
-  width:100%; background:var(--gopay); color:#042f2e; font-weight:700; border:none; padding:14px;
-  border-radius:10px; font-size:.95rem; cursor:pointer; margin-top:12px; text-decoration:none;
-  display:block; text-align:center;
+button.app-btn {
+  width:100%; font-weight:700; border:none; padding:13px; border-radius:10px;
+  font-size:.9rem; cursor:pointer; margin-top:8px; color:#042f2e;
 }
+button.btn-gojek { background:var(--gojek); color:#fff; }
+button.btn-gopay { background:var(--gopay); color:#042f2e; }
 button.copy-sm { font-size:.75rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:6px 12px; cursor:pointer; }
 .status { display:none; text-align:center; padding:14px; border-radius:10px; font-size:.85rem; margin-top:14px; }
 .status.pending { display:block; background:#713f12; color:#fde68a; }
@@ -47,6 +48,8 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .gopay-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 .badge-gp { display:inline-block; background:var(--gopay); color:#042f2e; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:99px; }
 .hint { font-size:.72rem; color:var(--muted); text-align:center; margin-top:10px; line-height:1.45; }
+.app-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+@media (max-width:380px) { .app-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -86,9 +89,15 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
           <button type="button" class="copy-sm" id="btn-copy">Salin</button>
         </div>
       </div>
-      <!-- Tombol utama: buka deep link + salin nomor otomatis -->
-      <button type="button" class="gopay-btn" id="btn-open-gopay">💚 Buka GoPay &amp; Salin Nomor</button>
-      <p class="hint">Satu ketuk: nomor disalin + aplikasi GoPay/Gojek terbuka ke menu transfer. Masukkan nominal di atas, lalu kembali ke sini untuk upload bukti.</p>
+
+      <div class="app-grid">
+        <button type="button" class="app-btn btn-gojek" id="btn-gojek">🟢 Buka Gojek</button>
+        <button type="button" class="app-btn btn-gopay" id="btn-gopay">💚 Buka GoPay</button>
+      </div>
+      <p class="hint">
+        Ketuk salah satu tombol: <b>nomor otomatis disalin</b>, lalu aplikasi terbuka.<br>
+        Di app: Transfer → tempel nomor → isi nominal di atas → bayar → kembali upload bukti.
+      </p>
     </div>
 
     <div id="qris-block" style="display:none">
@@ -139,16 +148,9 @@ let fee = 0;
 let settings = { title:"Checkout", sub:"", logo:"", qris:"", showQrisFallback:false, footer:"", gopay:null };
 let settingsLoaded = false, itemLoaded = false;
 let gopayNumber = "";
-let gopayDeepLink = "";
 
 function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
 function orderTotal(){ return (Number(itemPrice)||0) + (Number(fee)||0); }
-function to62(p){
-  p = String(p||"").replace(/\D/g,"");
-  if (p.startsWith("0")) p = "62" + p.slice(1);
-  if (p && !p.startsWith("62")) p = "62" + p;
-  return p;
-}
 
 function renderTotals() {
   document.getElementById("item-name").textContent = itemName;
@@ -164,7 +166,6 @@ function renderTotals() {
 function copyNumber() {
   if (!gopayNumber) return Promise.resolve();
   return navigator.clipboard.writeText(gopayNumber).catch(() => {
-    // fallback lama
     const ta = document.createElement("textarea");
     ta.value = gopayNumber;
     document.body.appendChild(ta);
@@ -174,17 +175,15 @@ function copyNumber() {
   });
 }
 
-/** Satu aksi: salin nomor + buka deep link GoPay */
-function openGopay() {
-  const btn = document.getElementById("btn-open-gopay");
+/** Salin nomor + buka skema app (sederhana, lebih stabil) */
+function openApp(scheme, btn) {
+  const label = btn.textContent;
   copyNumber().then(() => {
-    btn.textContent = "✓ Nomor disalin — membuka GoPay...";
-    setTimeout(() => { btn.textContent = "💚 Buka GoPay & Salin Nomor"; }, 2500);
+    btn.textContent = "✓ Disalin...";
+    setTimeout(() => { btn.textContent = label; }, 2000);
   });
-  // buka deep link (harus dipicu klik user agar tidak diblok browser)
-  if (gopayDeepLink) {
-    window.location.href = gopayDeepLink;
-  }
+  // gojek:// atau gojek://gopay — tanpa ?phone= agar tidak error "belum bisa lanjut"
+  window.location.href = scheme;
 }
 
 if (!merchantId) {
@@ -229,7 +228,6 @@ function applySettings() {
   if (gopayOk) {
     gpBlock.style.display = "block";
     gopayNumber = g.number;
-    gopayDeepLink = g.deepLink || ("gojek://gopay/transfer?phone=" + to62(g.number));
     document.getElementById("gp-name").textContent = "a.n. " + (g.holder || "-");
     document.getElementById("gp-number").textContent = g.number;
 
@@ -240,11 +238,18 @@ function applySettings() {
         setTimeout(() => b.textContent = "Salin", 1500);
       });
     };
-    document.getElementById("btn-open-gopay").onclick = openGopay;
+
+    // Terpisah: Gojek vs GoPay (skema sederhana)
+    document.getElementById("btn-gojek").onclick = function () {
+      openApp("gojek://", this);
+    };
+    document.getElementById("btn-gopay").onclick = function () {
+      // coba buka area gopay di dalam Gojek; fallback gojek://
+      openApp("gojek://gopay", this);
+    };
   } else {
     gpBlock.style.display = "none";
     gopayNumber = "";
-    gopayDeepLink = "";
   }
 
   const qrisBlock = document.getElementById("qris-block");

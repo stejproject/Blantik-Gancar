@@ -3,79 +3,199 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Toko Online — Sample</title>
+<title>Kedai Kopi — Sample</title>
 <style>
-:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --text:#e2e8f0; --muted:#94a3b8; }
-* { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
-body { background:var(--bg); color:var(--text); min-height:100vh; }
-.wrap { max-width:900px; margin:0 auto; padding:24px 16px 60px; }
+:root {
+  --bg: #1a120b;
+  --bg2: #24180f;
+  --card: #2c1e14;
+  --accent: #c4a484;
+  --accent2: #e8c9a0;
+  --text: #f5ebe0;
+  --muted: #a89080;
+  --green: #22c55e;
+  --danger: #ef4444;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+body { background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Nav */
+nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(26,18,11,.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid #3d2a1c;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; gap: 12px;
+}
+.brand { font-weight: 800; letter-spacing: .5px; color: var(--accent2); }
+.brand small { display: block; font-weight: 400; color: var(--muted); font-size: .68rem; }
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.cart-btn {
+  background: var(--card); border: 1px solid #4a3424; color: var(--text);
+  padding: 8px 14px; border-radius: 999px; cursor: pointer; font-size: .85rem;
+  position: relative;
+}
+.cart-btn .badge {
+  position: absolute; top: -6px; right: -4px;
+  background: var(--green); color: #052e16; font-size: .65rem; font-weight: 800;
+  min-width: 18px; height: 18px; border-radius: 99px; display: flex; align-items: center; justify-content: center;
+  padding: 0 4px;
+}
 
 /* Hero */
-.hero { text-align:center; padding:40px 16px 32px; }
-.hero img.logo { width:72px; height:72px; border-radius:16px; object-fit:cover; margin-bottom:14px; }
-.hero h1 { font-size:1.7rem; margin-bottom:8px; letter-spacing:-.3px; }
-.hero p { color:var(--muted); font-size:.9rem; max-width:420px; margin:0 auto; }
-
-/* Grid produk */
-.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:16px; margin-top:28px; }
-.product-card {
-  background:var(--card); border:1px solid #334155; border-radius:14px;
-  padding:18px; display:flex; flex-direction:column; gap:10px;
-  transition:border-color .15s, transform .15s;
+.hero {
+  text-align: center; padding: 48px 16px 28px;
+  background: linear-gradient(180deg, #2c1e14 0%, var(--bg) 100%);
 }
-.product-card:hover { border-color:var(--accent); transform:translateY(-2px); }
-.product-card .name { font-weight:700; font-size:1rem; }
-.product-card .desc { color:var(--muted); font-size:.78rem; min-height:16px; }
-.product-card .price { color:var(--accent); font-weight:700; font-size:1.1rem; margin-top:auto; }
-.product-card .fee-note { color:var(--muted); font-size:.7rem; }
-.product-card a.buy {
-  display:block; text-align:center; background:var(--accent); color:#052e16;
-  font-weight:700; font-size:.85rem; padding:11px; border-radius:9px;
-  text-decoration:none; margin-top:4px;
+.hero h1 { font-size: 1.85rem; margin-bottom: 8px; color: var(--accent2); }
+.hero p { color: var(--muted); max-width: 420px; margin: 0 auto; font-size: .9rem; line-height: 1.5; }
+.powered {
+  display: inline-block; margin-top: 14px; font-size: .68rem; color: var(--muted);
+  border: 1px solid #4a3424; padding: 4px 12px; border-radius: 99px;
 }
-.product-card a.buy:hover { opacity:.9; }
 
-.empty, .error-box {
-  text-align:center; color:var(--muted); font-size:.88rem;
-  padding:40px 20px; background:var(--card); border-radius:14px; border:1px solid #334155;
-  margin-top:20px;
+/* Menu */
+.section { max-width: 960px; margin: 0 auto; padding: 12px 16px 80px; }
+.section h2 {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--muted); margin: 18px 0 14px;
 }
-.error-box { color:#fecaca; border-color:#7f1d1d; background:#7f1d1d1a; }
+.grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;
+}
+.card {
+  background: var(--card); border: 1px solid #3d2a1c; border-radius: 14px;
+  padding: 16px; display: flex; flex-direction: column; gap: 8px;
+  transition: border-color .15s, transform .15s;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.card .emoji { font-size: 1.8rem; }
+.card .name { font-weight: 700; font-size: 1rem; }
+.card .desc { color: var(--muted); font-size: .78rem; line-height: 1.4; min-height: 2.2em; }
+.card .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.card .price { color: var(--accent2); font-weight: 800; }
+.card button {
+  background: var(--accent); color: #1a120b; border: none; font-weight: 700;
+  padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: .8rem;
+}
+.card button:hover { background: var(--accent2); }
 
-footer { text-align:center; color:#475569; font-size:.72rem; margin-top:40px; }
-
-.badge-powered {
-  display:inline-block; margin-top:6px; font-size:.68rem; color:var(--muted);
-  border:1px solid #334155; padding:3px 10px; border-radius:99px;
+/* Cart drawer */
+.overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 80;
+}
+.overlay.show { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; width: min(380px, 100%); height: 100%;
+  background: var(--bg2); border-left: 1px solid #3d2a1c; z-index: 90;
+  transform: translateX(100%); transition: transform .25s ease;
+  display: flex; flex-direction: column;
+}
+.drawer.open { transform: translateX(0); }
+.drawer header {
+  padding: 16px 18px; border-bottom: 1px solid #3d2a1c;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.drawer header h3 { font-size: 1rem; }
+.drawer header button {
+  background: transparent; border: none; color: var(--muted); font-size: 1.2rem; cursor: pointer;
+}
+.drawer .items { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.cart-item {
+  display: flex; gap: 10px; align-items: center; padding: 12px 0;
+  border-bottom: 1px dashed #3d2a1c;
+}
+.cart-item .info { flex: 1; min-width: 0; }
+.cart-item .info b { display: block; font-size: .88rem; }
+.cart-item .info small { color: var(--muted); }
+.qty {
+  display: flex; align-items: center; gap: 6px;
+}
+.qty button {
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid #4a3424;
+  background: var(--card); color: var(--text); cursor: pointer; font-weight: 700;
+}
+.drawer .footer {
+  padding: 16px 18px 24px; border-top: 1px solid #3d2a1c;
+}
+.total-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; font-weight: 700;
+}
+.total-row span:last-child { color: var(--accent2); font-size: 1.15rem; }
+.btn-checkout {
+  width: 100%; background: var(--green); color: #052e16; border: none;
+  font-weight: 800; padding: 14px; border-radius: 10px; cursor: pointer; font-size: .95rem;
+}
+.btn-checkout:disabled { opacity: .45; cursor: not-allowed; }
+.empty-cart { text-align: center; color: var(--muted); padding: 40px 12px; font-size: .88rem; }
+.err {
+  display: none; margin: 16px; padding: 12px; border-radius: 10px;
+  background: #7f1d1d33; border: 1px solid #7f1d1d; color: #fecaca; font-size: .85rem; text-align: center;
+}
+footer.page {
+  text-align: center; color: #6b5344; font-size: .72rem; padding: 24px 16px 40px;
 }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <div class="hero">
-    <img class="logo" id="store-logo" style="display:none" alt="">
-    <h1 id="store-name">Memuat toko...</h1>
-    <p id="store-sub"></p>
-    <span class="badge-powered">⚡ Powered by Blantik-Gancar Checkout</span>
+<nav>
+  <div class="brand">
+    Kopi Blantik
+    <small id="store-sub">Sample kedai + keranjang → checkout STEJ</small>
   </div>
-
-  <div id="error-merchant" class="error-box" style="display:none">
-    Toko tidak ditemukan.<br>
-    Pastikan URL memakai parameter <code>?merchant=&lt;uid&gt;</code> yang sesuai dengan akun admin toko.
+  <div class="nav-actions">
+    <button class="cart-btn" id="btn-cart" type="button">
+      🛒 Keranjang
+      <span class="badge" id="cart-count" style="display:none">0</span>
+    </button>
   </div>
+</nav>
 
-  <div class="grid" id="product-grid"></div>
-
-  <footer id="page-footer">© 2026</footer>
+<div class="hero">
+  <h1 id="store-name">Kedai Kopi</h1>
+  <p>Menu sample. Keranjang di browser, pembayaran lewat checkout GoPay STEJ (bukan Midtrans).</p>
+  <span class="powered">⚡ Powered by Blantik-Gancar Checkout</span>
 </div>
+
+<div class="err" id="err-merchant">
+  Parameter <b>merchant</b> wajib di URL.<br>
+  Contoh: store-kedai.html?merchant=UID_ANDA
+</div>
+
+<section class="section">
+  <h2>Menu</h2>
+  <div class="grid" id="menu-grid"></div>
+</section>
+
+<footer class="page" id="page-footer">© 2026 · Sample UI kedai kopi + keranjang · bayar via STEJ</footer>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <header>
+    <h3>Keranjang</h3>
+    <button type="button" id="btn-close" aria-label="Tutup">✕</button>
+  </header>
+  <div class="items" id="cart-items"></div>
+  <div class="footer">
+    <div class="total-row">
+      <span>Total</span>
+      <span id="cart-total">Rp 0</span>
+    </div>
+    <button class="btn-checkout" id="btn-checkout" type="button" disabled>
+      💳 Checkout via STEJ (GoPay)
+    </button>
+    <p style="font-size:.7rem;color:var(--muted);text-align:center;margin-top:10px;line-height:1.4">
+      Part 5 Midtrans diganti: satu ketuk membuka checkout STEJ dengan total keranjang.
+    </p>
+  </div>
+</aside>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Sama persis dengan konfigurasi Firebase di admin.html & checkout.html —
-// tiga file ini memang satu paket (project stej-checkout).
 const firebaseConfig = {
   apiKey: "AIzaSyCMdMWdmLQs1H2azteEXH0ldGhKEkf1R4E",
   authDomain: "stej-checkout.firebaseapp.com",
@@ -86,69 +206,191 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const db = getFirestore(app);
 
 const params = new URLSearchParams(location.search);
 const merchantId = params.get("merchant") || "";
 
-function esc(t) { const d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+const CART_KEY = "stej_kedai_cart_" + (merchantId || "guest");
+
+/** Menu fallback jika Firestore kosong — sample kedai kopi */
+const SAMPLE_MENU = [
+  { id: "espresso", name: "Espresso", desc: "Shot kopi pekat", price: 18000, emoji: "☕" },
+  { id: "americano", name: "Americano", desc: "Espresso + air panas", price: 20000, emoji: "🖤" },
+  { id: "latte", name: "Caffe Latte", desc: "Espresso + susu steamed", price: 25000, emoji: "🥛" },
+  { id: "cappuccino", name: "Cappuccino", desc: "Espresso + foam tebal", price: 25000, emoji: "☁️" },
+  { id: "matcha", name: "Matcha Latte", desc: "Green tea + susu", price: 28000, emoji: "🍵" },
+  { id: "croissant", name: "Croissant", desc: "Pastry renyah", price: 22000, emoji: "🥐" }
+];
+
+let menu = [];
+let cart = loadCart();
+
 function fmt(n) { return "Rp " + (n || 0).toLocaleString("id-ID"); }
+function esc(t) { const d = document.createElement("div"); d.textContent = t == null ? "" : t; return d.innerHTML; }
+
+function loadCart() {
+  try { return JSON.parse(localStorage.getItem(CART_KEY) || "[]"); } catch { return []; }
+}
+function saveCart() {
+  localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  renderCart();
+  renderMenuButtons();
+}
+
+function cartCount() { return cart.reduce((s, i) => s + i.qty, 0); }
+function cartTotal() { return cart.reduce((s, i) => s + i.price * i.qty, 0); }
+
+function addToCart(item) {
+  const ex = cart.find(c => c.id === item.id);
+  if (ex) ex.qty += 1;
+  else cart.push({ id: item.id, name: item.name, price: item.price, qty: 1 });
+  saveCart();
+  openDrawer();
+}
+function changeQty(id, delta) {
+  const it = cart.find(c => c.id === id);
+  if (!it) return;
+  it.qty += delta;
+  if (it.qty <= 0) cart = cart.filter(c => c.id !== id);
+  saveCart();
+}
+
+function renderMenu() {
+  const grid = document.getElementById("menu-grid");
+  grid.innerHTML = menu.map(m => `
+    <article class="card" data-id="${esc(m.id)}">
+      <div class="emoji">${m.emoji || "☕"}</div>
+      <div class="name">${esc(m.name)}</div>
+      <div class="desc">${esc(m.desc || "")}</div>
+      <div class="row">
+        <span class="price">${fmt(m.price)}</span>
+        <button type="button" data-add="${esc(m.id)}">+ Keranjang</button>
+      </div>
+    </article>
+  `).join("");
+
+  grid.querySelectorAll("[data-add]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const item = menu.find(m => m.id === btn.getAttribute("data-add"));
+      if (item) addToCart(item);
+    });
+  });
+}
+
+function renderMenuButtons() { /* reserved */ }
+
+function renderCart() {
+  const countEl = document.getElementById("cart-count");
+  const n = cartCount();
+  if (n > 0) { countEl.style.display = "flex"; countEl.textContent = n; }
+  else countEl.style.display = "none";
+
+  document.getElementById("cart-total").textContent = fmt(cartTotal());
+  document.getElementById("btn-checkout").disabled = !(merchantId && n > 0);
+
+  const box = document.getElementById("cart-items");
+  if (!cart.length) {
+    box.innerHTML = `<div class="empty-cart">Keranjang kosong.<br>Pilih menu dulu.</div>`;
+    return;
+  }
+  box.innerHTML = cart.map(c => `
+    <div class="cart-item">
+      <div class="info">
+        <b>${esc(c.name)}</b>
+        <small>${fmt(c.price)} × ${c.qty} = ${fmt(c.price * c.qty)}</small>
+      </div>
+      <div class="qty">
+        <button type="button" data-minus="${esc(c.id)}">−</button>
+        <span>${c.qty}</span>
+        <button type="button" data-plus="${esc(c.id)}">+</button>
+      </div>
+    </div>
+  `).join("");
+
+  box.querySelectorAll("[data-minus]").forEach(b => b.onclick = () => changeQty(b.getAttribute("data-minus"), -1));
+  box.querySelectorAll("[data-plus]").forEach(b => b.onclick = () => changeQty(b.getAttribute("data-plus"), 1));
+}
+
+function openDrawer() {
+  document.getElementById("drawer").classList.add("open");
+  document.getElementById("overlay").classList.add("show");
+}
+function closeDrawer() {
+  document.getElementById("drawer").classList.remove("open");
+  document.getElementById("overlay").classList.remove("show");
+}
+
+document.getElementById("btn-cart").onclick = openDrawer;
+document.getElementById("btn-close").onclick = closeDrawer;
+document.getElementById("overlay").onclick = closeDrawer;
+
+/**
+ * PART 5 PENGGANTI MIDTRANS
+ * Kirim total keranjang ke checkout STEJ (GoPay manual).
+ * checkout.html membaca ?merchant=&item=&price=
+ */
+document.getElementById("btn-checkout").onclick = () => {
+  if (!merchantId || !cart.length) return;
+  const total = cartTotal();
+  const summary = cart.map(c => `${c.name}×${c.qty}`).join(", ");
+  const itemLabel = summary.length > 80 ? summary.slice(0, 77) + "…" : summary;
+  const url = new URL("checkout.html", location.href);
+  url.searchParams.set("merchant", merchantId);
+  url.searchParams.set("item", itemLabel || "Pesanan Kedai");
+  url.searchParams.set("price", String(total));
+  // tanpa id → checkout pakai nama+harga dari query (bukan dokumen items)
+  location.href = url.toString();
+};
 
 async function init() {
   if (!merchantId) {
-    document.getElementById("error-merchant").style.display = "block";
-    document.getElementById("store-name").textContent = "Toko tidak ditemukan";
+    document.getElementById("err-merchant").style.display = "block";
+    menu = SAMPLE_MENU;
+    renderMenu();
+    renderCart();
     return;
   }
 
-  // Ambil profil toko (judul, sub-judul, logo, footer) dari settings/main —
-  // dokumen yang sama yang diatur admin lewat tab "Halaman" di admin.html.
+  // Profil toko dari admin tab Halaman
   try {
-    const settingsSnap = await getDoc(doc(db, "merchants", merchantId, "settings", "main"));
-    const s = settingsSnap.exists() ? settingsSnap.data() : {};
-    document.getElementById("store-name").textContent = s.title || "Toko Online";
-    if (s.sub) document.getElementById("store-sub").textContent = s.sub;
-    if (s.logo) {
-      const l = document.getElementById("store-logo");
-      l.src = s.logo;
-      l.style.display = "block";
+    const snap = await getDoc(doc(db, "merchants", merchantId, "settings", "main"));
+    if (snap.exists()) {
+      const s = snap.data();
+      if (s.title) {
+        document.getElementById("store-name").textContent = s.title;
+        document.title = s.title;
+      }
+      if (s.sub) document.getElementById("store-sub").textContent = s.sub;
+      if (s.footer) document.getElementById("page-footer").textContent = s.footer;
     }
-    if (s.footer) document.getElementById("page-footer").textContent = s.footer;
-  } catch (e) {
-    console.error("Gagal memuat profil toko:", e.message);
-  }
+  } catch (e) { console.warn(e.message); }
 
-  // Ambil katalog produk toko ini.
-  const grid = document.getElementById("product-grid");
+  // Produk: utamakan items Firestore; jika kosong pakai sample kedai
   try {
     const itemsSnap = await getDocs(collection(db, "merchants", merchantId, "items"));
-    if (itemsSnap.empty) {
-      grid.innerHTML = "";
-      const empty = document.createElement("div");
-      empty.className = "empty";
-      empty.textContent = "Belum ada produk di toko ini.";
-      grid.replaceWith(empty);
-      return;
+    if (!itemsSnap.empty) {
+      menu = [];
+      itemsSnap.forEach(d => {
+        const it = d.data();
+        menu.push({
+          id: d.id,
+          name: it.name || "Item",
+          desc: it.description || (it.fee ? ("+ fee " + fmt(it.fee)) : "Produk toko"),
+          price: Number(it.price || 0) + Number(it.fee || 0),
+          emoji: "☕"
+        });
+      });
+    } else {
+      menu = SAMPLE_MENU;
     }
-
-    let html = "";
-    itemsSnap.forEach(docSnap => {
-      const it = docSnap.data();
-      const checkoutLink = `checkout.html?merchant=${encodeURIComponent(merchantId)}&id=${encodeURIComponent(docSnap.id)}`;
-      html += `
-        <div class="product-card">
-          <div class="name">${esc(it.name)}</div>
-          ${it.description ? `<div class="desc">${esc(it.description)}</div>` : `<div class="desc"></div>`}
-          <div class="price">${fmt(it.price)}</div>
-          ${it.fee ? `<div class="fee-note">+ biaya layanan ${fmt(it.fee)}</div>` : ""}
-          <a class="buy" href="${checkoutLink}">🛒 Beli Sekarang</a>
-        </div>`;
-    });
-    grid.innerHTML = html;
   } catch (e) {
-    console.error("Gagal memuat produk:", e.message);
-    grid.outerHTML = `<div class="error-box">Gagal memuat katalog produk: ${esc(e.message)}</div>`;
+    console.warn(e.message);
+    menu = SAMPLE_MENU;
   }
+
+  renderMenu();
+  renderCart();
 }
 
 init();

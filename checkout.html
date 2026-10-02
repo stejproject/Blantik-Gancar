@@ -163,15 +163,18 @@ function copyNumber() {
   });
 }
 
-/** Salin nomor + buka skema app (sederhana, lebih stabil) */
-function openApp(scheme, btn) {
+/** Membuka skema aplikasi dinamis berdasarkan pengaturan dari admin */
+function openApp(defaultScheme, btn) {
   const label = btn.textContent;
+  // 1. Ambil data gopay dari settings Firestore
+  const g = settings.gopay || {};
+  const targetLink = g.deepLink ? g.deepLink : defaultScheme;
   copyNumber().then(() => {
     btn.textContent = "✓ Disalin...";
     setTimeout(() => { btn.textContent = label; }, 2000);
   });
-  // gojek:// atau gojek://gopay — tanpa ?phone= agar tidak error "belum bisa lanjut"
-  window.location.href = scheme;
+  // 2. Alihkan pembeli langsung ke aplikasi sesuai isi pengaturan dari admin
+  window.location.href = targetLink;
 }
 
 if (!merchantId) {

@@ -42,9 +42,6 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .pay-hint small { color:var(--muted); display:block; margin-bottom:4px; font-size:.72rem; }
 .pay-hint strong { color:var(--accent); font-size:1.25rem; }
 .error-box { background:#7f1d1d33; border:1px solid #7f1d1d; color:#fecaca; padding:14px; border-radius:10px; text-align:center; font-size:.85rem; }
-.gopay-box { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:14px; }
-.gopay-box .name { font-weight:600; font-size:.95rem; margin-top:6px; }
-.gopay-box .number { font-family:monospace; letter-spacing:1px; color:#86efac; font-size:1rem; margin:8px 0; font-weight:700; }
 .gopay-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 .badge-gp { display:inline-block; background:var(--gopay); color:#042f2e; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:99px; }
 .hint { font-size:.72rem; color:var(--muted); text-align:center; margin-top:10px; line-height:1.45; }
@@ -81,15 +78,6 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
     </div>
 
     <div id="gopay-block" style="display:none">
-      <div class="gopay-box">
-        <span class="badge-gp">GoPay</span>
-        <div class="name" id="gp-name">—</div>
-        <div class="gopay-row">
-          <div class="number" id="gp-number">—</div>
-          <button type="button" class="copy-sm" id="btn-copy">Salin</button>
-        </div>
-      </div>
-
       <div class="app-grid">
         <button type="button" class="app-btn btn-gojek" id="btn-gojek">🟢 Buka Gojek</button>
         <button type="button" class="app-btn btn-gopay" id="btn-gopay">💚 Buka GoPay</button>

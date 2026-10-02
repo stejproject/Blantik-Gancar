@@ -91,12 +91,15 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
         <input id="gp-number" placeholder="081234567890">
         <label>Atas Nama</label>
         <input id="gp-holder" placeholder="Nama di akun GoPay">
-        <label>Deep Link (opsional)</label>
-        <input id="gp-deeplink" placeholder="gojek://gopay/transfer?phone=628123456789">
-        <p class="hint">Kosongkan deep link = otomatis dari nomor. Contoh: gojek://gopay/transfer?phone=628123456789</p>
+        <label>Deep Link (opsional — biarkan kosong)</label>
+        <input id="gp-deeplink" placeholder="kosong = tombol pakai gojek:// saja">
+        <p class="hint">
+          Jangan pakai <code>transfer?phone=...</code> — sering ditolak Gojek (“belum bisa lanjut”).<br>
+          Kosongkan field ini. Checkout akan: <b>salin nomor</b> + buka <code>gojek://</code> / <code>gojek://gopay</code>.
+        </p>
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="saveGopay()">💾 Simpan GoPay</button>
-          <button class="gray" onclick="autoDeepLink()">Buat deep link dari nomor</button>
+          <button class="gray" onclick="clearDeepLink()">Kosongkan deep link</button>
         </div>
         <div class="preview-box"><b>Preview</b><div id="gp-preview-text" style="color:var(--muted);font-size:.85rem;margin-top:6px">Belum disetel</div></div>
       </div>
@@ -154,14 +157,13 @@ onAuthStateChanged(auth, u => {
 });
 function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.style.display="block"; setTimeout(()=>t.style.display="none",1800); }
 function esc(t){ const d=document.createElement("div"); d.textContent=t==null?"":t; return d.innerHTML; }
-function to62(p){ p=String(p||"").replace(/\D/g,""); if(p.startsWith("0"))p="62"+p.slice(1); if(p&&!p.startsWith("62"))p="62"+p; return p; }
 window.showTab=(id,btn)=>{ ["pay","gopay","page","item"].forEach(t=>document.getElementById("tab-"+t).style.display=t===id?"block":"none"); document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); };
-window.autoDeepLink=()=>{ const n=document.getElementById("gp-number").value.trim(); if(!n){alert("Isi nomor dulu");return;} document.getElementById("gp-deeplink").value="gojek://gopay/transfer?phone="+to62(n); updatePreview(); };
+window.clearDeepLink=()=>{ document.getElementById("gp-deeplink").value=""; updatePreview(); };
 function updatePreview(){
   const a=document.getElementById("gp-active").checked, n=document.getElementById("gp-number").value.trim(), h=document.getElementById("gp-holder").value.trim(), d=document.getElementById("gp-deeplink").value.trim();
   const el=document.getElementById("gp-preview-text");
   if(!n){ el.textContent="Belum disetel"; return; }
-  el.innerHTML=`<span class="badge ${a?"on":"off"}">${a?"AKTIF":"NONAKTIF"}</span> <span class="badge gopay">GoPay</span><br>${esc(n)} a.n. ${esc(h||"-")}<br>${esc(d||("gojek://gopay/transfer?phone="+to62(n)))}`;
+  el.innerHTML=`<span class="badge ${a?"on":"off"}">${a?"AKTIF":"NONAKTIF"}</span> <span class="badge gopay">GoPay</span><br>${esc(n)} a.n. ${esc(h||"-")}<br>Deep link: ${esc(d||"(kosong → gojek://)")}`;
 }
 ["gp-active","gp-number","gp-holder","gp-deeplink"].forEach(id=>{ document.getElementById(id).addEventListener("input",updatePreview); document.getElementById(id).addEventListener("change",updatePreview); });
 window.loadPayments=filter=>{
@@ -191,7 +193,10 @@ function loadGopay(){
     document.getElementById("gp-active").checked=g.active!==false&&!!g.number;
     document.getElementById("gp-number").value=g.number||"";
     document.getElementById("gp-holder").value=g.holder||"";
-    document.getElementById("gp-deeplink").value=g.deepLink||"";
+    // bersihkan deep link berbahaya dari data lama
+    let dl = g.deepLink || "";
+    if (/transfer\?phone=/i.test(dl)) dl = "";
+    document.getElementById("gp-deeplink").value = dl;
     updatePreview();
   });
 }
@@ -201,7 +206,12 @@ window.saveGopay=async()=>{
   let deepLink=document.getElementById("gp-deeplink").value.trim();
   const active=document.getElementById("gp-active").checked;
   if(active&&!number){ alert("Nomor wajib diisi"); return; }
-  if(!deepLink&&number){ deepLink="gojek://gopay/transfer?phone="+to62(number); document.getElementById("gp-deeplink").value=deepLink; }
+  // tolak deep link transfer?phone= yang sering gagal
+  if (/transfer\?phone=/i.test(deepLink)) {
+    alert("Deep link transfer?phone= sering ditolak Gojek. Field dikosongkan.");
+    deepLink = "";
+    document.getElementById("gp-deeplink").value = "";
+  }
   await setDoc(doc(db,"merchants",uid,"settings","main"),{ gopay:{number,holder,deepLink,active}, banks:[] },{merge:true});
   updatePreview(); toast("GoPay tersimpan ✓");
 };

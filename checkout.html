@@ -24,17 +24,10 @@ input, textarea { width:100%; background:#0f172a; border:1px solid #334155; colo
 input:focus, textarea:focus { outline:none; border-color:var(--accent); }
 button.primary { width:100%; background:var(--accent); color:#052e16; font-weight:700; border:none; padding:13px; border-radius:10px; font-size:.95rem; cursor:pointer; margin-top:16px; }
 button.primary:disabled { opacity:.5; cursor:not-allowed; }
-button.app-btn {
-  width:100%; font-weight:700; border:none; padding:13px; border-radius:10px;
-  font-size:.9rem; cursor:pointer; margin-top:8px; color:#042f2e;
-}
+button.app-btn { width:100%; font-weight:700; border:none; padding:13px; border-radius:10px; font-size:.9rem; cursor:pointer; margin-top:8px; color:#042f2e; }
 button.btn-gojek { background:var(--gojek); color:#fff; }
 button.btn-gopay { background:var(--gopay); color:#042f2e; }
-button.btn-copy {
-  width:100%; font-weight:700; border:1px solid #334155; background:#0f172a; color:var(--text);
-  padding:12px; border-radius:10px; font-size:.85rem; cursor:pointer; margin-top:8px;
-}
-button.btn-copy:hover { border-color:var(--accent); }
+button.btn-copy { width:100%; font-weight:700; border:1px solid #334155; background:#0f172a; color:var(--text); padding:12px; border-radius:10px; font-size:.85rem; cursor:pointer; margin-top:8px; }
 .status { display:none; text-align:center; padding:14px; border-radius:10px; font-size:.85rem; margin-top:14px; }
 .status.pending { display:block; background:#713f12; color:#fde68a; }
 .status.approved { display:block; background:#14532d; color:#86efac; }
@@ -61,33 +54,26 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
     <h1 id="page-title">Checkout</h1>
     <p class="sub" id="page-sub">Silakan selesaikan pembayaran Anda</p>
   </header>
-
   <div id="error-merchant" class="error-box" style="display:none;margin-bottom:16px">
     Link checkout tidak valid.<br>Pakai link dari admin yang berisi parameter <b>merchant</b>.
   </div>
-
   <div class="card">
     <h2>Ringkasan Pesanan</h2>
     <div class="item-row"><span class="item-name" id="item-name">Memuat...</span><span class="item-price" id="item-price"></span></div>
     <div class="item-row" id="fee-row" style="display:none"><span class="item-name">Biaya Layanan</span><span class="item-price" id="item-fee"></span></div>
     <div class="item-row"><span class="item-name" style="font-weight:700">Total</span><span class="item-price" id="item-total" style="font-size:1.05rem"></span></div>
   </div>
-
   <div class="notice" id="notice-offline"></div>
-
   <div class="card" id="method-card">
     <h2>Pembayaran via GoPay</h2>
     <div class="pay-hint">
       <small>Transfer tepat sebesar</small>
       <strong id="pay-amount">Rp 0</strong>
     </div>
-
-    <!-- GoPay: nomor TIDAK ditampilkan; hanya bisa disalin lewat tombol -->
     <div id="gopay-block" style="display:none">
       <div class="pay-meta">
         <span class="badge-gp">GoPay</span>
         <div class="holder" id="gp-holder">a.n. —</div>
-        <!-- sengaja tidak ada elemen nomor HP di DOM -->
       </div>
       <button type="button" class="btn-copy" id="btn-copy">📋 Salin nomor pembayaran</button>
       <div class="app-grid">
@@ -95,18 +81,16 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
         <button type="button" class="app-btn btn-gopay" id="btn-gopay">💚 Buka GoPay</button>
       </div>
       <p class="hint">
-        Nomor <b>tidak ditampilkan</b> di layar demi privasi.<br>
-        Ketuk <b>Salin</b> atau buka app → nomor masuk clipboard → tempel di Transfer → isi nominal di atas → bayar → upload bukti.
+        Nomor <b>tidak ditampilkan</b> di layar.<br>
+        Ketuk <b>Salin</b> (wajib berhasil) → buka app → Transfer → tempel nomor → isi nominal → bayar → upload bukti.
       </p>
     </div>
-
     <div id="qris-block" style="display:none">
       <label>QRIS</label>
       <img class="qris-img" id="qris-img" alt="QRIS">
       <p class="hint">Scan dengan e-wallet / m-banking</p>
     </div>
   </div>
-
   <div class="card">
     <h2>Konfirmasi Pembayaran</h2>
     <label>Nama Pengirim (sesuai akun GoPay)</label>
@@ -119,10 +103,8 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
     <button class="primary" id="btn-submit" disabled>📤 Kirim Konfirmasi Pembayaran</button>
     <div class="status" id="pay-status"></div>
   </div>
-
   <footer id="page-footer">© 2026</footer>
 </div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -135,10 +117,8 @@ const firebaseConfig = {
   messagingSenderId: "87920802108",
   appId: "1:87920802108:web:3253dff10f78d139f7c639"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
 const params = new URLSearchParams(location.search);
 const merchantId = params.get("merchant") || "";
 let itemId = params.get("id") || "";
@@ -147,12 +127,10 @@ let itemPrice = parseInt(params.get("price") || "0", 10);
 let fee = 0;
 let settings = { title:"Checkout", sub:"", logo:"", qris:"", showQrisFallback:false, footer:"", gopay:null };
 let settingsLoaded = false, itemLoaded = false;
-/** Nomor hanya di memori JS — tidak pernah di-render ke teks halaman */
 let gopayNumber = "";
 
 function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
 function orderTotal(){ return (Number(itemPrice)||0) + (Number(fee)||0); }
-
 function renderTotals() {
   document.getElementById("item-name").textContent = itemName;
   document.getElementById("item-price").textContent = fmt(itemPrice);
@@ -163,7 +141,6 @@ function renderTotals() {
     document.getElementById("item-fee").textContent = fmt(fee);
   } else document.getElementById("fee-row").style.display = "none";
 }
-
 function copyNumber() {
   if (!gopayNumber) return Promise.reject(new Error("Nomor belum tersedia"));
   return navigator.clipboard.writeText(gopayNumber).catch(() => {
@@ -178,21 +155,26 @@ function copyNumber() {
     document.body.removeChild(ta);
   });
 }
-
 function flashBtn(btn, okText) {
   const label = btn.dataset.label || btn.textContent;
   btn.dataset.label = label;
   btn.textContent = okText;
   setTimeout(() => { btn.textContent = label; }, 2000);
 }
-
-function openApp(defaultScheme, btn) {
+/** Jangan pakai deep link transfer?phone= (sering ditolak Gojek) */
+function safeScheme(preferred, fallback) {
+  const d = (preferred || "").trim();
+  if (!d) return fallback;
+  if (/transfer\?phone=/i.test(d)) return fallback;
+  return d;
+}
+function openApp(fallbackScheme, btn) {
   const g = settings.gopay || {};
-  const targetLink = (g.deepLink && g.deepLink.trim()) ? g.deepLink.trim() : defaultScheme;
+  const target = safeScheme(g.deepLink, fallbackScheme);
   copyNumber()
     .then(() => flashBtn(btn, "✓ Disalin..."))
     .catch(() => flashBtn(btn, "Gagal salin"))
-    .finally(() => { window.location.href = targetLink; });
+    .finally(() => { window.location.href = target; });
 }
 
 if (!merchantId) {
@@ -241,22 +223,16 @@ function applySettings() {
   const gopayOk = g.active !== false && !!g.number;
   const gpBlock = document.getElementById("gopay-block");
   const qrisBlock = document.getElementById("qris-block");
-
-  // QRIS opsional (bisa bersamaan dengan GoPay tersembunyi)
   const showQris = !!(settings.qris && (settings.showQrisFallback || !gopayOk));
   if (showQris) {
     document.getElementById("qris-img").src = settings.qris;
     qrisBlock.style.display = "block";
-  } else {
-    qrisBlock.style.display = "none";
-  }
+  } else qrisBlock.style.display = "none";
 
   if (gopayOk) {
     gpBlock.style.display = "block";
-    // Nomor hanya di variabel — tidak ditulis ke innerText / DOM
     gopayNumber = String(g.number).trim();
     document.getElementById("gp-holder").textContent = "a.n. " + (g.holder || "—");
-
     document.getElementById("btn-copy").onclick = () => {
       copyNumber()
         .then(() => flashBtn(document.getElementById("btn-copy"), "✓ Nomor disalin"))
@@ -273,17 +249,13 @@ function applySettings() {
   if (!gopayOk && !settings.qris) {
     notice.textContent = "⚠️ Belum ada metode pembayaran aktif.";
     notice.style.display = "block";
-  } else {
-    notice.style.display = "none";
-  }
+  } else notice.style.display = "none";
   maybeEnable();
 }
-
 function maybeEnable() {
   document.getElementById("btn-submit").disabled =
     !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0);
 }
-
 document.getElementById("f-bukti").addEventListener("change", e => {
   const f = e.target.files[0];
   if (!f) return;
@@ -296,7 +268,6 @@ document.getElementById("f-bukti").addEventListener("change", e => {
   };
   r.readAsDataURL(f);
 });
-
 document.getElementById("btn-submit").addEventListener("click", async () => {
   const nama = document.getElementById("f-nama").value.trim();
   const catatan = document.getElementById("f-catatan").value.trim();
@@ -305,11 +276,9 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
   if (!merchantId) { alert("Link tidak valid"); return; }
   if (!nama) { alert("Nama pengirim wajib diisi"); return; }
   if (total <= 0) { alert("Total tidak valid"); return; }
-
   const btn = document.getElementById("btn-submit");
   btn.disabled = true;
   btn.textContent = "Mengirim...";
-
   let bukti = null;
   if (file) {
     bukti = await new Promise(res => {
@@ -318,21 +287,16 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
       r.readAsDataURL(file);
     });
   }
-
   try {
     const ref = await addDoc(collection(db, "merchants", merchantId, "payments"), {
-      itemId,
-      item: itemName,
+      itemId, item: itemName,
       price: parseInt(itemPrice, 10) || 0,
       fee: parseInt(fee, 10) || 0,
       total: parseInt(total, 10) || 0,
       senderName: nama,
       nominal: parseInt(total, 10) || 0,
-      method: "GoPay",
-      note: catatan,
-      channel: "gopay",
-      proofBase64: bukti,
-      status: "pending",
+      method: "GoPay", note: catatan, channel: "gopay",
+      proofBase64: bukti, status: "pending",
       createdAt: new Date().toISOString()
     });
     alert("Konfirmasi terkirim! Tunggu verifikasi.");

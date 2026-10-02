@@ -208,17 +208,25 @@ function applySettings() {
   if (settings.sub) document.getElementById("page-sub").textContent = settings.sub;
   if (settings.logo) { const l = document.getElementById("page-logo"); l.src = settings.logo; l.style.display = "block"; }
   if (settings.footer) document.getElementById("page-footer").textContent = settings.footer;
-
   const g = settings.gopay || {};
   const gopayOk = g.active !== false && g.number;
   const gpBlock = document.getElementById("gopay-block");
-
-  if (gopayOk) {
+  const qrisBlock = document.getElementById("qris-block");
+  // LOGIKA BARU: Jika ada QRIS, utamakan QRIS dan Sembunyikan Kontak GoPay Pribadi demi privasi
+  if (settings.qris && settings.showQrisFallback) {
+    // Sembunyikan nomor kontak GoPay manual agar pimpinan aman
+    gpBlock.style.display = "none";
+    gopayNumber = "";
+    // Tampilkan QRIS sebagai gerbang utama pembayaran
+    document.getElementById("qris-img").src = settings.qris;
+    qrisBlock.style.display = "block";
+  } 
+  // Fallback jika QRIS tidak diatur, gunakan tampilan GoPay nomor biasa seperti semula
+  else if (gopayOk) {
     gpBlock.style.display = "block";
     gopayNumber = g.number;
     document.getElementById("gp-name").textContent = "a.n. " + (g.holder || "-");
     document.getElementById("gp-number").textContent = g.number;
-
     document.getElementById("btn-copy").onclick = () => {
       copyNumber().then(() => {
         const b = document.getElementById("btn-copy");
@@ -226,32 +234,19 @@ function applySettings() {
         setTimeout(() => b.textContent = "Salin", 1500);
       });
     };
-
-    // Terpisah: Gojek vs GoPay (skema sederhana)
-    document.getElementById("btn-gojek").onclick = function () {
-      openApp("gojek://", this);
-    };
-    document.getElementById("btn-gopay").onclick = function () {
-      // coba buka area gopay di dalam Gojek; fallback gojek://
-      openApp("gojek://gopay", this);
-    };
+    document.getElementById("btn-gojek").onclick = function () { openApp("gojek://", this); };
+    document.getElementById("btn-gopay").onclick = function () { openApp("gojek://gopay", this); };
+    qrisBlock.style.display = "none";
   } else {
     gpBlock.style.display = "none";
     gopayNumber = "";
+    qrisBlock.style.display = "none";
   }
-
-  const qrisBlock = document.getElementById("qris-block");
-  if (settings.qris && (settings.showQrisFallback || !gopayOk)) {
-    document.getElementById("qris-img").src = settings.qris;
-    qrisBlock.style.display = "block";
-  } else qrisBlock.style.display = "none";
-
   const notice = document.getElementById("notice-offline");
   if (!gopayOk && !settings.qris) {
     notice.textContent = "⚠️ Belum ada metode pembayaran aktif.";
     notice.style.display = "block";
   } else notice.style.display = "none";
-
   maybeEnable();
 }
 
@@ -296,9 +291,18 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
 
   try {
     const ref = await addDoc(collection(db, "merchants", merchantId, "payments"), {
-      itemId, item: itemName, price: itemPrice, fee, total,
-      senderName: nama, nominal: total, method: "GoPay", note: catatan,
-      channel: "gopay", proofBase64: bukti, status: "pending",
+      itemId, 
+      item: itemName, 
+      price: parseInt(itemPrice, 10), // Memastikan bertipe data Integer
+      fee: parseInt(fee, 10),         // Memastikan bertipe data Integer
+      total: parseInt(total, 10),     // Memastikan bertipe data Integer
+      senderName: nama, 
+      nominal: parseInt(total, 10),   // WAJIB Integer agar lolos Firestore Security Rules baru Anda!
+      method: "GoPay", 
+      note: catatan,
+      channel: "gopay", 
+      proofBase64: bukti, 
+      status: "pending",              // Tetap dipaksa 'pending' di sisi client
       createdAt: new Date().toISOString()
     });
     alert("Konfirmasi terkirim! Tunggu verifikasi.");

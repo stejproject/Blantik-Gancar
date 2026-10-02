@@ -30,7 +30,11 @@ button.app-btn {
 }
 button.btn-gojek { background:var(--gojek); color:#fff; }
 button.btn-gopay { background:var(--gopay); color:#042f2e; }
-button.copy-sm { font-size:.75rem; background:#334155; color:var(--text); border:none; border-radius:6px; padding:6px 12px; cursor:pointer; }
+button.btn-copy {
+  width:100%; font-weight:700; border:1px solid #334155; background:#0f172a; color:var(--text);
+  padding:12px; border-radius:10px; font-size:.85rem; cursor:pointer; margin-top:8px;
+}
+button.btn-copy:hover { border-color:var(--accent); }
 .status { display:none; text-align:center; padding:14px; border-radius:10px; font-size:.85rem; margin-top:14px; }
 .status.pending { display:block; background:#713f12; color:#fde68a; }
 .status.approved { display:block; background:#14532d; color:#86efac; }
@@ -42,10 +46,11 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 .pay-hint small { color:var(--muted); display:block; margin-bottom:4px; font-size:.72rem; }
 .pay-hint strong { color:var(--accent); font-size:1.25rem; }
 .error-box { background:#7f1d1d33; border:1px solid #7f1d1d; color:#fecaca; padding:14px; border-radius:10px; text-align:center; font-size:.85rem; }
-.gopay-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-.badge-gp { display:inline-block; background:var(--gopay); color:#042f2e; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:99px; }
+.badge-gp { display:inline-block; background:var(--gopay); color:#042f2e; font-size:.65rem; font-weight:700; padding:2px 8px; border-radius:99px; margin-bottom:8px; }
 .hint { font-size:.72rem; color:var(--muted); text-align:center; margin-top:10px; line-height:1.45; }
 .app-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.pay-meta { text-align:center; margin-bottom:4px; }
+.pay-meta .holder { font-size:.85rem; color:var(--muted); margin-top:4px; }
 @media (max-width:380px) { .app-grid { grid-template-columns:1fr; } }
 </style>
 </head>
@@ -77,14 +82,21 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
       <strong id="pay-amount">Rp 0</strong>
     </div>
 
+    <!-- GoPay: nomor TIDAK ditampilkan; hanya bisa disalin lewat tombol -->
     <div id="gopay-block" style="display:none">
+      <div class="pay-meta">
+        <span class="badge-gp">GoPay</span>
+        <div class="holder" id="gp-holder">a.n. —</div>
+        <!-- sengaja tidak ada elemen nomor HP di DOM -->
+      </div>
+      <button type="button" class="btn-copy" id="btn-copy">📋 Salin nomor pembayaran</button>
       <div class="app-grid">
         <button type="button" class="app-btn btn-gojek" id="btn-gojek">🟢 Buka Gojek</button>
         <button type="button" class="app-btn btn-gopay" id="btn-gopay">💚 Buka GoPay</button>
       </div>
       <p class="hint">
-        Ketuk salah satu tombol: <b>nomor otomatis disalin</b>, lalu aplikasi terbuka.<br>
-        Di app: Transfer → tempel nomor → isi nominal di atas → bayar → kembali upload bukti.
+        Nomor <b>tidak ditampilkan</b> di layar demi privasi.<br>
+        Ketuk <b>Salin</b> atau buka app → nomor masuk clipboard → tempel di Transfer → isi nominal di atas → bayar → upload bukti.
       </p>
     </div>
 
@@ -135,6 +147,7 @@ let itemPrice = parseInt(params.get("price") || "0", 10);
 let fee = 0;
 let settings = { title:"Checkout", sub:"", logo:"", qris:"", showQrisFallback:false, footer:"", gopay:null };
 let settingsLoaded = false, itemLoaded = false;
+/** Nomor hanya di memori JS — tidak pernah di-render ke teks halaman */
 let gopayNumber = "";
 
 function fmt(n){ return "Rp " + (n||0).toLocaleString("id-ID"); }
@@ -152,29 +165,34 @@ function renderTotals() {
 }
 
 function copyNumber() {
-  if (!gopayNumber) return Promise.resolve();
+  if (!gopayNumber) return Promise.reject(new Error("Nomor belum tersedia"));
   return navigator.clipboard.writeText(gopayNumber).catch(() => {
     const ta = document.createElement("textarea");
     ta.value = gopayNumber;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
     document.body.appendChild(ta);
     ta.select();
-    try { document.execCommand("copy"); } catch(_) {}
+    try { document.execCommand("copy"); } catch (_) {}
     document.body.removeChild(ta);
   });
 }
 
-/** Membuka skema aplikasi dinamis berdasarkan pengaturan dari admin */
+function flashBtn(btn, okText) {
+  const label = btn.dataset.label || btn.textContent;
+  btn.dataset.label = label;
+  btn.textContent = okText;
+  setTimeout(() => { btn.textContent = label; }, 2000);
+}
+
 function openApp(defaultScheme, btn) {
-  const label = btn.textContent;
-  // 1. Ambil data gopay dari settings Firestore
   const g = settings.gopay || {};
-  const targetLink = g.deepLink ? g.deepLink : defaultScheme;
-  copyNumber().then(() => {
-    btn.textContent = "✓ Disalin...";
-    setTimeout(() => { btn.textContent = label; }, 2000);
-  });
-  // 2. Alihkan pembeli langsung ke aplikasi sesuai isi pengaturan dari admin
-  window.location.href = targetLink;
+  const targetLink = (g.deepLink && g.deepLink.trim()) ? g.deepLink.trim() : defaultScheme;
+  copyNumber()
+    .then(() => flashBtn(btn, "✓ Disalin..."))
+    .catch(() => flashBtn(btn, "Gagal salin"))
+    .finally(() => { window.location.href = targetLink; });
 }
 
 if (!merchantId) {
@@ -199,7 +217,7 @@ if (!merchantId) {
         itemPrice = Number(it.price) || 0;
         fee = Number(it.fee) || 0;
       }
-    } catch(e) { console.error(e.message); }
+    } catch (e) { console.error(e.message); }
     renderTotals();
     itemLoaded = true;
     maybeEnable();
@@ -207,54 +225,63 @@ if (!merchantId) {
 }
 
 function applySettings() {
-  if (settings.title) { document.title = settings.title; document.getElementById("page-title").textContent = settings.title; }
+  if (settings.title) {
+    document.title = settings.title;
+    document.getElementById("page-title").textContent = settings.title;
+  }
   if (settings.sub) document.getElementById("page-sub").textContent = settings.sub;
-  if (settings.logo) { const l = document.getElementById("page-logo"); l.src = settings.logo; l.style.display = "block"; }
+  if (settings.logo) {
+    const l = document.getElementById("page-logo");
+    l.src = settings.logo;
+    l.style.display = "block";
+  }
   if (settings.footer) document.getElementById("page-footer").textContent = settings.footer;
+
   const g = settings.gopay || {};
-  const gopayOk = g.active !== false && g.number;
+  const gopayOk = g.active !== false && !!g.number;
   const gpBlock = document.getElementById("gopay-block");
   const qrisBlock = document.getElementById("qris-block");
-  // LOGIKA BARU: Jika ada QRIS, utamakan QRIS dan Sembunyikan Kontak GoPay Pribadi demi privasi
-  if (settings.qris && settings.showQrisFallback) {
-    // Sembunyikan nomor kontak GoPay manual agar pimpinan aman
-    gpBlock.style.display = "none";
-    gopayNumber = "";
-    // Tampilkan QRIS sebagai gerbang utama pembayaran
+
+  // QRIS opsional (bisa bersamaan dengan GoPay tersembunyi)
+  const showQris = !!(settings.qris && (settings.showQrisFallback || !gopayOk));
+  if (showQris) {
     document.getElementById("qris-img").src = settings.qris;
     qrisBlock.style.display = "block";
-  } 
-  // Fallback jika QRIS tidak diatur, gunakan tampilan GoPay nomor biasa seperti semula
-  else if (gopayOk) {
+  } else {
+    qrisBlock.style.display = "none";
+  }
+
+  if (gopayOk) {
     gpBlock.style.display = "block";
-    gopayNumber = g.number;
-    document.getElementById("gp-name").textContent = "a.n. " + (g.holder || "-");
-    document.getElementById("gp-number").textContent = g.number;
+    // Nomor hanya di variabel — tidak ditulis ke innerText / DOM
+    gopayNumber = String(g.number).trim();
+    document.getElementById("gp-holder").textContent = "a.n. " + (g.holder || "—");
+
     document.getElementById("btn-copy").onclick = () => {
-      copyNumber().then(() => {
-        const b = document.getElementById("btn-copy");
-        b.textContent = "✓";
-        setTimeout(() => b.textContent = "Salin", 1500);
-      });
+      copyNumber()
+        .then(() => flashBtn(document.getElementById("btn-copy"), "✓ Nomor disalin"))
+        .catch(() => flashBtn(document.getElementById("btn-copy"), "Gagal menyalin"));
     };
     document.getElementById("btn-gojek").onclick = function () { openApp("gojek://", this); };
     document.getElementById("btn-gopay").onclick = function () { openApp("gojek://gopay", this); };
-    qrisBlock.style.display = "none";
   } else {
     gpBlock.style.display = "none";
     gopayNumber = "";
-    qrisBlock.style.display = "none";
   }
+
   const notice = document.getElementById("notice-offline");
   if (!gopayOk && !settings.qris) {
     notice.textContent = "⚠️ Belum ada metode pembayaran aktif.";
     notice.style.display = "block";
-  } else notice.style.display = "none";
+  } else {
+    notice.style.display = "none";
+  }
   maybeEnable();
 }
 
 function maybeEnable() {
-  document.getElementById("btn-submit").disabled = !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0);
+  document.getElementById("btn-submit").disabled =
+    !(merchantId && settingsLoaded && itemLoaded && orderTotal() > 0);
 }
 
 document.getElementById("f-bukti").addEventListener("change", e => {
@@ -294,18 +321,18 @@ document.getElementById("btn-submit").addEventListener("click", async () => {
 
   try {
     const ref = await addDoc(collection(db, "merchants", merchantId, "payments"), {
-      itemId, 
-      item: itemName, 
-      price: parseInt(itemPrice, 10), // Memastikan bertipe data Integer
-      fee: parseInt(fee, 10),         // Memastikan bertipe data Integer
-      total: parseInt(total, 10),     // Memastikan bertipe data Integer
-      senderName: nama, 
-      nominal: parseInt(total, 10),   // WAJIB Integer agar lolos Firestore Security Rules baru Anda!
-      method: "GoPay", 
+      itemId,
+      item: itemName,
+      price: parseInt(itemPrice, 10) || 0,
+      fee: parseInt(fee, 10) || 0,
+      total: parseInt(total, 10) || 0,
+      senderName: nama,
+      nominal: parseInt(total, 10) || 0,
+      method: "GoPay",
       note: catatan,
-      channel: "gopay", 
-      proofBase64: bukti, 
-      status: "pending",              // Tetap dipaksa 'pending' di sisi client
+      channel: "gopay",
+      proofBase64: bukti,
+      status: "pending",
       createdAt: new Date().toISOString()
     });
     alert("Konfirmasi terkirim! Tunggu verifikasi.");

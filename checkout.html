@@ -109,6 +109,34 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, getDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// ========== STEJ deobfuscate (wajib untuk GoPay ter-protect) ==========
+const STEJ = (() => {
+  function xor(s, k) {
+    let r = '';
+    for (let i = 0; i < s.length; i++) r += String.fromCharCode(s.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+    return r;
+  }
+  function rot47(s) {
+    return s.replace(/[!-~]/g, c => String.fromCharCode(33 + ((c.charCodeAt(0) - 33 + 47) % 94)));
+  }
+  function fromHex(s) {
+    return s.replace(/\\x([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  }
+  function b64d(s) { return decodeURIComponent(escape(atob(s))); }
+  return {
+    deobfuscate(payload, key) {
+      if (!key) throw new Error('STEJ key kosong');
+      let d = String(payload).replace(/\s/g, '');
+      d = b64d(d);
+      d = fromHex(d);
+      d = rot47(d);
+      d = xor(d, key);
+      return d;
+    }
+  };
+})();
+
+
 const firebaseConfig = {
   apiKey: "AIzaSyCMdMWdmLQs1H2azteEXH0ldGhKEkf1R4E",
   authDomain: "stej-checkout.firebaseapp.com",
@@ -177,19 +205,39 @@ function openApp(fallbackScheme, btn) {
 }
 
 /**
- * Ambil nomor GoPay untuk customer.
- * Prioritas:
- * 1. g.number (plain) — wajib untuk checkout publik
- * 2. g.numberPublic — field khusus display publik (jika admin STEJ-protect internal copy)
- * Tidak pernah coba deobfuscate numberObf di sisi customer (tidak ada key, dan tidak aman).
+ * Resolve nomor GoPay:
+ * - Jika stejProtected + numberObf → DEOBFUSCATE pakai stejCheckoutKey
+ * - Else pakai number plain
  */
 function resolveGopayPublic(g) {
   g = g || {};
-  const number = String(g.number || g.numberPublic || "").trim();
-  const holder = String(g.holder || g.holderPublic || "").trim();
-  const active = g.active !== false && !!number;
-  const stejOnly = !!(g.stejProtected && g.numberObf && !number);
-  return { number, holder, active, stejOnly };
+  let number = '';
+  let holder = '';
+  let usedStej = false;
+  let error = null;
+
+  if (g.stejProtected && g.numberObf) {
+    const key = String(g.stejCheckoutKey || '').trim();
+    if (!key) {
+      error = 'GoPay dilindungi STEJ tapi kunci checkout belum diset di admin.';
+    } else {
+      try {
+        number = STEJ.deobfuscate(g.numberObf, key).trim();
+        if (g.holderObf) {
+          try { holder = STEJ.deobfuscate(g.holderObf, key).trim(); } catch (_) { holder = ''; }
+        }
+        usedStej = true;
+      } catch (e) {
+        error = 'Gagal deobfuscate nomor STEJ: ' + e.message;
+      }
+    }
+  } else {
+    number = String(g.number || g.numberPublic || '').trim();
+    holder = String(g.holder || g.holderPublic || '').trim();
+  }
+
+  const active = g.active !== false && !!number && !error;
+  return { number, holder, active, usedStej, error, stejOnly: false };
 }
 
 if (!merchantId) {
@@ -247,11 +295,10 @@ function applySettings() {
 
   const notice = document.getElementById("notice-offline");
 
-  if (resolved.stejOnly) {
-    // Admin menyimpan HANYA numberObf tanpa plain/public → checkout tidak bisa salin nomor
+  if (resolved.error) {
     gpBlock.style.display = "none";
     gopayNumber = "";
-    notice.textContent = "⚠️ Nomor GoPay dilindungi STEJ tanpa salinan publik. Admin perlu menyimpan nomor plain/public agar pembeli bisa transfer.";
+    notice.textContent = "⚠️ " + resolved.error;
     notice.style.display = "block";
   } else if (resolved.active) {
     gpBlock.style.display = "block";

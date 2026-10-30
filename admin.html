@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Checkout</title>
+<title>Admin Checkout + STEJ</title>
 <style>
-:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --text:#e2e8f0; --muted:#94a3b8; }
+:root { --bg:#0f172a; --card:#1e293b; --accent:#22c55e; --text:#e2e8f0; --muted:#94a3b8; --violet:#8b5cf6; }
 * { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
 body { background:var(--bg); color:var(--text); min-height:100vh; display:flex; justify-content:center; padding:24px 16px; }
 .wrap { width:100%; max-width:760px; }
@@ -19,6 +19,7 @@ input:focus { outline:none; border-color:var(--accent); }
 button { background:var(--accent); color:#052e16; border:none; padding:10px 18px; border-radius:8px; font-weight:700; font-size:.85rem; cursor:pointer; }
 button.gray { background:#334155; color:var(--text); }
 button.red { background:#dc2626; color:#fff; }
+button.violet { background:var(--violet); color:#fff; }
 button.sm { padding:5px 10px; font-size:.72rem; }
 table { width:100%; border-collapse:collapse; font-size:.8rem; margin-top:10px; }
 th { text-align:left; color:var(--muted); font-size:.68rem; padding:8px 6px; border-bottom:1px solid #334155; }
@@ -30,6 +31,7 @@ td { padding:10px 6px; border-bottom:1px solid #1e293b; vertical-align:top; }
 .badge.on { background:#14532d; color:#86efac; }
 .badge.off { background:#334155; color:#94a3b8; }
 .badge.gopay { background:#00aed6; color:#042f2e; }
+.badge.stej { background:#4c1d95; color:#e9d5ff; }
 .user { display:flex; align-items:center; gap:10px; margin-bottom:14px; font-size:.85rem; }
 .user img { width:32px; height:32px; border-radius:50%; }
 .tabs { display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap; }
@@ -46,16 +48,20 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
 .item-row .grow { flex:1; min-width:150px; }
 .item-row .grow b { display:block; font-size:.85rem; }
 .item-row .grow small { color:var(--muted); }
+.stej-box { border:1px solid #5b21b6; background:#1e1b4b; border-radius:10px; padding:12px; margin-top:12px; }
+.stej-box h3 { font-size:.75rem; color:#c4b5fd; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>⚙️ Admin Checkout</h1>
-  <p class="sub">Kelola halaman checkout, GoPay, dan verifikasi pembayaran</p>
+  <h1>⚙️ Admin Checkout <span class="badge stej">+ STEJ</span></h1>
+  <p class="sub">Kelola checkout, GoPay, verifikasi — data sensitif dilindungi STEJ obfuscation</p>
+
   <div class="card" id="login-card">
     <p style="font-size:.85rem;color:var(--muted);margin-bottom:14px">Login dengan Google</p>
     <button onclick="login()">🔑 Login dengan Google</button>
   </div>
+
   <div id="dash" style="display:none">
     <div class="card">
       <div class="user">
@@ -63,12 +69,27 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
         <span id="u-name"></span>
         <button class="gray sm" style="margin-left:auto" onclick="logout()">Logout</button>
       </div>
+
+      <!-- STEJ KEY -->
+      <div class="stej-box">
+        <h3>🔐 STEJ Merchant Key</h3>
+        <label style="margin-top:0">Kunci obfuscation (disimpan di browser ini saja)</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="stej-key" type="password" placeholder="Kunci rahasia merchant..." style="flex:1">
+          <button class="violet sm" type="button" onclick="toggleStejKey()">👁</button>
+          <button class="gray sm" type="button" onclick="saveStejKey()">Simpan</button>
+        </div>
+        <p class="hint">Dipakai untuk obfuscate nomor GoPay & nama saat disimpan ke Firestore. Tidak dikirim ke server sebagai plain (hanya hasil obfuscate).</p>
+      </div>
+
       <div class="tabs">
         <button class="active" onclick="showTab('pay',this)">💳 Pembayaran</button>
         <button onclick="showTab('gopay',this)">💚 GoPay</button>
         <button onclick="showTab('page',this)">🎨 Halaman</button>
-        <button onclick="showTab('item',this)">📦 Item / Produk</button>
+        <button onclick="showTab('item',this)">📦 Item</button>
+        <button onclick="showTab('stej',this)">🔒 STEJ Tools</button>
       </div>
+
       <div id="tab-pay">
         <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
           <button class="gray sm" onclick="loadPayments('all')">Semua</button>
@@ -81,38 +102,42 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
           <tbody id="pay-body"><tr><td colspan="5" style="color:var(--muted)">Memuat...</td></tr></tbody>
         </table>
       </div>
+
       <div id="tab-gopay" style="display:none">
         <h2>Pengaturan GoPay</h2>
         <div class="switch-row">
           <input type="checkbox" id="gp-active">
-          <label style="margin:0" for="gp-active">Tampilkan GoPay di halaman checkout</label>
+          <label style="margin:0" for="gp-active">Tampilkan GoPay di checkout</label>
+        </div>
+        <div class="switch-row">
+          <input type="checkbox" id="gp-stej" checked>
+          <label style="margin:0" for="gp-stej">Obfuscate nomor & nama dengan STEJ saat simpan</label>
         </div>
         <label>Nomor HP GoPay</label>
         <input id="gp-number" placeholder="081234567890">
         <label>Atas Nama</label>
         <input id="gp-holder" placeholder="Nama di akun GoPay">
-        <label>Deep Link (opsional — biarkan kosong)</label>
-        <input id="gp-deeplink" placeholder="kosong = tombol pakai gojek:// saja">
-        <p class="hint">
-          Jangan pakai <code>transfer?phone=...</code> — sering ditolak Gojek (“belum bisa lanjut”).<br>
-          Kosongkan field ini. Checkout akan: <b>salin nomor</b> + buka <code>gojek://</code> / <code>gojek://gopay</code>.
-        </p>
+        <label>Deep Link (opsional)</label>
+        <input id="gp-deeplink" placeholder="kosong = gojek:// saja">
+        <p class="hint">Jika STEJ aktif, nomor/nama disimpan ter-obfuscate di Firestore. Checkout publik butuh deobfuscate di sisi yang punya kunci, atau simpan versi plain terpisah untuk display publik.</p>
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="saveGopay()">💾 Simpan GoPay</button>
           <button class="gray" onclick="clearDeepLink()">Kosongkan deep link</button>
         </div>
         <div class="preview-box"><b>Preview</b><div id="gp-preview-text" style="color:var(--muted);font-size:.85rem;margin-top:6px">Belum disetel</div></div>
       </div>
+
       <div id="tab-page" style="display:none">
         <h2>Pengaturan Halaman Checkout</h2>
         <label>Judul</label><input id="set-title" placeholder="Checkout">
         <label>Sub-judul</label><input id="set-sub" placeholder="Silakan selesaikan pembayaran">
         <label>URL Logo</label><input id="set-logo" placeholder="https://...">
-        <label>URL QRIS (opsional)</label><input id="set-qris" placeholder="https://...">
+        <label>URL QRIS</label><input id="set-qris" placeholder="https://...">
         <div class="switch-row"><input type="checkbox" id="set-qris-fallback"><label style="margin:0" for="set-qris-fallback">Tampilkan QRIS tambahan</label></div>
         <label>Footer</label><input id="set-footer" placeholder="© 2026">
         <button style="margin-top:14px" onclick="saveSettings()">💾 Simpan</button>
       </div>
+
       <div id="tab-item" style="display:none">
         <h2>Daftar Item</h2>
         <div id="item-list"></div>
@@ -124,14 +149,80 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
         <label>Fee (opsional)</label><input id="it-fee" type="number" placeholder="0">
         <div style="margin-top:12px"><button onclick="saveItem()">➕ Tambah</button></div>
       </div>
+
+      <!-- STEJ TOOLS TAB -->
+      <div id="tab-stej" style="display:none">
+        <h2>STEJ Obfuscate / Deobfuscate</h2>
+        <p class="hint">Pakai API yang sama dengan keamanan.html & aaman.html</p>
+        <label>Teks / Payload</label>
+        <textarea id="stej-input" rows="4" placeholder="Plain text atau payload Base64..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="violet" onclick="stejObfuscateUI()">🔒 Obfuscate</button>
+          <button onclick="stejDeobfuscateUI()">🔓 Deobfuscate</button>
+          <button class="gray" onclick="stejOpenTools()">Buka Tools GitHub ↗</button>
+        </div>
+        <label>Hasil</label>
+        <textarea id="stej-output" rows="4" readonly></textarea>
+        <p class="hint">
+          Link tools:<br>
+          Obf: <a style="color:var(--accent)" href="https://stejproject.github.io/taskbar/keamanan.html" target="_blank">keamanan.html</a><br>
+          Deobf: <a style="color:var(--accent)" href="https://stejproject.github.io/taskbar/aaman.html" target="_blank">aaman.html</a>
+        </p>
+      </div>
     </div>
   </div>
 </div>
 <div class="toast" id="toast">✓</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ========== STEJ API (sama dengan obfuscator/deobfuscator) ==========
+const STEJ = (() => {
+  function xor(s, k) {
+    let r = '';
+    for (let i = 0; i < s.length; i++) r += String.fromCharCode(s.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+    return r;
+  }
+  function rot47(s) {
+    return s.replace(/[!-~]/g, c => String.fromCharCode(33 + ((c.charCodeAt(0) - 33 + 47) % 94)));
+  }
+  function toHex(s) {
+    return s.split('').map(c => '\\x' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+  }
+  function fromHex(s) {
+    return s.replace(/\\x([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  }
+  function b64e(s) { return btoa(unescape(encodeURIComponent(s))); }
+  function b64d(s) { return decodeURIComponent(escape(atob(s))); }
+  const DEF = { xor: true, rot47: true, hex: true };
+  return {
+    obfuscate(text, key, opts) {
+      opts = Object.assign({}, DEF, opts || {});
+      if (!key) throw new Error('STEJ key wajib');
+      let d = text;
+      if (opts.xor) d = xor(d, key);
+      if (opts.rot47) d = rot47(d);
+      if (opts.hex) d = toHex(d);
+      return b64e(d);
+    },
+    deobfuscate(payload, key, opts) {
+      opts = Object.assign({}, DEF, opts || {});
+      if (!key) throw new Error('STEJ key wajib');
+      let d = String(payload).replace(/\s/g, '');
+      d = b64d(d);
+      if (opts.hex) d = fromHex(d);
+      if (opts.rot47) d = rot47(d);
+      if (opts.xor) d = xor(d, key);
+      return d;
+    }
+  };
+})();
+window.STEJ = STEJ;
+
+// ========== Firebase ==========
 const firebaseConfig = {
   apiKey: "AIzaSyCMdMWdmLQs1H2azteEXH0ldGhKEkf1R4E",
   authDomain: "stej-checkout.firebaseapp.com",
@@ -144,120 +235,255 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 let uid = null, paymentsUnsub = null;
-window.login = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert("Login gagal: " + e.message));
-window.logout = () => signOut(auth);
-onAuthStateChanged(auth, u => {
-  document.getElementById("login-card").style.display = u ? "none" : "block";
-  document.getElementById("dash").style.display = u ? "block" : "none";
-  if (!u) return;
-  document.getElementById("u-img").src = u.photoURL || "";
-  document.getElementById("u-name").textContent = u.displayName || u.email;
-  uid = u.uid;
-  loadSettings(); loadGopay(); loadItems(); loadPayments("pending");
-});
-function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.style.display="block"; setTimeout(()=>t.style.display="none",1800); }
-function esc(t){ const d=document.createElement("div"); d.textContent=t==null?"":t; return d.innerHTML; }
-window.showTab=(id,btn)=>{ ["pay","gopay","page","item"].forEach(t=>document.getElementById("tab-"+t).style.display=t===id?"block":"none"); document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); };
-window.clearDeepLink=()=>{ document.getElementById("gp-deeplink").value=""; updatePreview(); };
-function updatePreview(){
-  const a=document.getElementById("gp-active").checked, n=document.getElementById("gp-number").value.trim(), h=document.getElementById("gp-holder").value.trim(), d=document.getElementById("gp-deeplink").value.trim();
-  const el=document.getElementById("gp-preview-text");
-  if(!n){ el.textContent="Belum disetel"; return; }
-  el.innerHTML=`<span class="badge ${a?"on":"off"}">${a?"AKTIF":"NONAKTIF"}</span> <span class="badge gopay">GoPay</span><br>${esc(n)} a.n. ${esc(h||"-")}<br>Deep link: ${esc(d||"(kosong → gojek://)")}`;
+
+const STEJ_KEY_LS = 'stej_merchant_key';
+
+function getStejKey() {
+  return (document.getElementById('stej-key')?.value || localStorage.getItem(STEJ_KEY_LS) || '').trim();
 }
-["gp-active","gp-number","gp-holder","gp-deeplink"].forEach(id=>{ document.getElementById(id).addEventListener("input",updatePreview); document.getElementById(id).addEventListener("change",updatePreview); });
-window.loadPayments=filter=>{
-  if(paymentsUnsub)paymentsUnsub();
-  paymentsUnsub=onSnapshot(query(collection(db,"merchants",uid,"payments"),orderBy("createdAt","desc")),snap=>{
-    const rows=[];
-    snap.forEach(s=>{
-      const p={id:s.id,...s.data()};
-      if(filter!=="all"&&p.status!==filter)return;
-      rows.push(`<tr><td><b>${esc(p.senderName)}</b><br><small style="color:var(--muted)">${esc(p.method||"GoPay")}</small></td>
-        <td>${esc(p.item)}<br><small style="color:var(--muted)">Rp ${(p.total||0).toLocaleString("id-ID")}</small></td>
-        <td>Rp ${Number(p.nominal||0).toLocaleString("id-ID")}</td>
+window.saveStejKey = () => {
+  const k = document.getElementById('stej-key').value.trim();
+  if (!k) return alert('Isi kunci dulu');
+  localStorage.setItem(STEJ_KEY_LS, k);
+  toast('STEJ key tersimpan di browser ✓');
+};
+window.toggleStejKey = () => {
+  const el = document.getElementById('stej-key');
+  el.type = el.type === 'password' ? 'text' : 'password';
+};
+
+window.login = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert('Login gagal: ' + e.message));
+window.logout = () => signOut(auth);
+
+onAuthStateChanged(auth, u => {
+  document.getElementById('login-card').style.display = u ? 'none' : 'block';
+  document.getElementById('dash').style.display = u ? 'block' : 'none';
+  if (!u) return;
+  document.getElementById('u-img').src = u.photoURL || '';
+  document.getElementById('u-name').textContent = u.displayName || u.email;
+  uid = u.uid;
+  const saved = localStorage.getItem(STEJ_KEY_LS);
+  if (saved) document.getElementById('stej-key').value = saved;
+  loadSettings(); loadGopay(); loadItems(); loadPayments('pending');
+});
+
+function toast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 1800);
+}
+function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+
+window.showTab = (id, btn) => {
+  ['pay','gopay','page','item','stej'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.style.display = t === id ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+window.clearDeepLink = () => { document.getElementById('gp-deeplink').value = ''; updatePreview(); };
+
+function updatePreview() {
+  const a = document.getElementById('gp-active').checked;
+  const n = document.getElementById('gp-number').value.trim();
+  const h = document.getElementById('gp-holder').value.trim();
+  const d = document.getElementById('gp-deeplink').value.trim();
+  const stej = document.getElementById('gp-stej').checked;
+  const el = document.getElementById('gp-preview-text');
+  if (!n) { el.textContent = 'Belum disetel'; return; }
+  el.innerHTML = `<span class="badge ${a?'on':'off'}">${a?'AKTIF':'NONAKTIF'}</span>
+    <span class="badge gopay">GoPay</span>
+    ${stej ? '<span class="badge stej">STEJ</span>' : ''}<br>
+    ${esc(n)} a.n. ${esc(h||'-')}<br>Deep link: ${esc(d||'(kosong → gojek://)')}`;
+}
+['gp-active','gp-number','gp-holder','gp-deeplink','gp-stej'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) { el.addEventListener('input', updatePreview); el.addEventListener('change', updatePreview); }
+});
+
+window.loadPayments = filter => {
+  if (paymentsUnsub) paymentsUnsub();
+  paymentsUnsub = onSnapshot(query(collection(db, 'merchants', uid, 'payments'), orderBy('createdAt', 'desc')), snap => {
+    const rows = [];
+    snap.forEach(s => {
+      const p = { id: s.id, ...s.data() };
+      if (filter !== 'all' && p.status !== filter) return;
+      rows.push(`<tr>
+        <td><b>${esc(p.senderName)}</b><br><small style="color:var(--muted)">${esc(p.method||'GoPay')}</small></td>
+        <td>${esc(p.item)}<br><small style="color:var(--muted)">Rp ${(p.total||0).toLocaleString('id-ID')}</small></td>
+        <td>Rp ${Number(p.nominal||0).toLocaleString('id-ID')}</td>
         <td><span class="badge ${p.status}">${p.status}</span></td>
-        <td>${p.proofBase64?`<a href="${p.proofBase64}" target="_blank"><img class="proof" src="${p.proofBase64}"></a><br>`:""}
-        ${p.status==="pending"?`<button class="sm" onclick="approvePay('${p.id}')">✅</button> <button class="red sm" onclick="rejectPay('${p.id}')">❌</button>`:""}
+        <td>${p.proofBase64?`<a href="${p.proofBase64}" target="_blank"><img class="proof" src="${p.proofBase64}"></a><br>`:''}
+        ${p.status==='pending'?`<button class="sm" onclick="approvePay('${p.id}')">✅</button> <button class="red sm" onclick="rejectPay('${p.id}')">❌</button>`:''}
         <button class="gray sm" onclick="deletePay('${p.id}')">🗑</button></td></tr>`);
     });
-    document.getElementById("pay-body").innerHTML=rows.length?rows.join(""):'<tr><td colspan="5" style="color:var(--muted)">Tidak ada data</td></tr>';
+    document.getElementById('pay-body').innerHTML = rows.length ? rows.join('') : '<tr><td colspan="5" style="color:var(--muted)">Tidak ada data</td></tr>';
   });
 };
-window.approvePay=async id=>{ await updateDoc(doc(db,"merchants",uid,"payments",id),{status:"approved",verifiedAt:new Date().toISOString()}); toast("Disetujui ✓"); };
-window.rejectPay=async id=>{ const r=prompt("Alasan:")||""; await updateDoc(doc(db,"merchants",uid,"payments",id),{status:"rejected",rejectReason:r,verifiedAt:new Date().toISOString()}); toast("Ditolak"); };
-window.deletePay=async id=>{ if(confirm("Hapus?")){ await deleteDoc(doc(db,"merchants",uid,"payments",id)); toast("Dihapus"); } };
-function loadGopay(){
-  onSnapshot(doc(db,"merchants",uid,"settings","main"),snap=>{
-    const g=(snap.exists()&&snap.data().gopay)||{};
-    document.getElementById("gp-active").checked=g.active!==false&&!!g.number;
-    document.getElementById("gp-number").value=g.number||"";
-    document.getElementById("gp-holder").value=g.holder||"";
-    // bersihkan deep link berbahaya dari data lama
-    let dl = g.deepLink || "";
-    if (/transfer\?phone=/i.test(dl)) dl = "";
-    document.getElementById("gp-deeplink").value = dl;
+window.approvePay = async id => { await updateDoc(doc(db,'merchants',uid,'payments',id),{status:'approved',verifiedAt:new Date().toISOString()}); toast('Disetujui ✓'); };
+window.rejectPay = async id => { const r = prompt('Alasan:')||''; await updateDoc(doc(db,'merchants',uid,'payments',id),{status:'rejected',rejectReason:r,verifiedAt:new Date().toISOString()}); toast('Ditolak'); };
+window.deletePay = async id => { if (confirm('Hapus?')) { await deleteDoc(doc(db,'merchants',uid,'payments',id)); toast('Dihapus'); } };
+
+function loadGopay() {
+  onSnapshot(doc(db, 'merchants', uid, 'settings', 'main'), snap => {
+    const g = (snap.exists() && snap.data().gopay) || {};
+    document.getElementById('gp-active').checked = g.active !== false && !!(g.number || g.numberObf);
+    document.getElementById('gp-stej').checked = !!g.stejProtected;
+
+    // Deobfuscate jika terlindungi STEJ
+    let number = g.number || '';
+    let holder = g.holder || '';
+    if (g.stejProtected && g.numberObf) {
+      const key = getStejKey();
+      if (key) {
+        try {
+          number = STEJ.deobfuscate(g.numberObf, key);
+          if (g.holderObf) holder = STEJ.deobfuscate(g.holderObf, key);
+        } catch (e) {
+          number = '(gagal deobf — cek STEJ key)';
+          holder = '';
+        }
+      } else {
+        number = '(terkunci STEJ — isi key di atas)';
+        holder = '';
+      }
+    }
+
+    document.getElementById('gp-number').value = number;
+    document.getElementById('gp-holder').value = holder;
+    let dl = g.deepLink || '';
+    if (/transfer\?phone=/i.test(dl)) dl = '';
+    document.getElementById('gp-deeplink').value = dl;
     updatePreview();
   });
 }
-window.saveGopay=async()=>{
-  const number=document.getElementById("gp-number").value.trim();
-  const holder=document.getElementById("gp-holder").value.trim();
-  let deepLink=document.getElementById("gp-deeplink").value.trim();
-  const active=document.getElementById("gp-active").checked;
-  if(active&&!number){ alert("Nomor wajib diisi"); return; }
-  // tolak deep link transfer?phone= yang sering gagal
+
+window.saveGopay = async () => {
+  let number = document.getElementById('gp-number').value.trim();
+  let holder = document.getElementById('gp-holder').value.trim();
+  let deepLink = document.getElementById('gp-deeplink').value.trim();
+  const active = document.getElementById('gp-active').checked;
+  const useStej = document.getElementById('gp-stej').checked;
+
+  if (active && !number) { alert('Nomor wajib diisi'); return; }
   if (/transfer\?phone=/i.test(deepLink)) {
-    alert("Deep link transfer?phone= sering ditolak Gojek. Field dikosongkan.");
-    deepLink = "";
-    document.getElementById("gp-deeplink").value = "";
+    alert('Deep link transfer?phone= sering ditolak. Dikosongkan.');
+    deepLink = '';
+    document.getElementById('gp-deeplink').value = '';
   }
-  await setDoc(doc(db,"merchants",uid,"settings","main"),{ gopay:{number,holder,deepLink,active}, banks:[] },{merge:true});
-  updatePreview(); toast("GoPay tersimpan ✓");
+
+  const payload = { gopay: { deepLink, active, stejProtected: false }, banks: [] };
+
+  if (useStej) {
+    const key = getStejKey();
+    if (!key) { alert('STEJ key wajib jika obfuscate aktif. Isi di kotak ungu di atas.'); return; }
+    try {
+      // Salinan ter-obfuscate (untuk audit / backup di admin)
+      payload.gopay.numberObf = STEJ.obfuscate(number, key);
+      payload.gopay.holderObf = holder ? STEJ.obfuscate(holder, key) : '';
+      payload.gopay.stejProtected = true;
+      // Tetap simpan plain untuk checkout publik (pembeli harus bisa transfer)
+      // numberPublic = salinan untuk checkout; number juga diisi biar kompatibel
+      payload.gopay.number = number;
+      payload.gopay.holder = holder;
+      payload.gopay.numberPublic = number;
+      payload.gopay.holderPublic = holder;
+    } catch (e) {
+      alert('STEJ obfuscate gagal: ' + e.message);
+      return;
+    }
+  } else {
+    payload.gopay.number = number;
+    payload.gopay.holder = holder;
+    payload.gopay.numberPublic = number;
+    payload.gopay.holderPublic = holder;
+    payload.gopay.numberObf = '';
+    payload.gopay.holderObf = '';
+  }
+
+  await setDoc(doc(db, 'merchants', uid, 'settings', 'main'), payload, { merge: true });
+  updatePreview();
+  toast(useStej ? 'GoPay tersimpan (STEJ protected) ✓' : 'GoPay tersimpan ✓');
 };
-function loadSettings(){
-  onSnapshot(doc(db,"merchants",uid,"settings","main"),snap=>{
-    if(!snap.exists())return; const s=snap.data();
-    document.getElementById("set-title").value=s.title||"";
-    document.getElementById("set-sub").value=s.sub||"";
-    document.getElementById("set-logo").value=s.logo||"";
-    document.getElementById("set-qris").value=s.qris||"";
-    document.getElementById("set-qris-fallback").checked=!!s.showQrisFallback;
-    document.getElementById("set-footer").value=s.footer||"";
+
+function loadSettings() {
+  onSnapshot(doc(db, 'merchants', uid, 'settings', 'main'), snap => {
+    if (!snap.exists()) return;
+    const s = snap.data();
+    document.getElementById('set-title').value = s.title || '';
+    document.getElementById('set-sub').value = s.sub || '';
+    document.getElementById('set-logo').value = s.logo || '';
+    document.getElementById('set-qris').value = s.qris || '';
+    document.getElementById('set-qris-fallback').checked = !!s.showQrisFallback;
+    document.getElementById('set-footer').value = s.footer || '';
   });
 }
-window.saveSettings=async()=>{
-  await setDoc(doc(db,"merchants",uid,"settings","main"),{
-    title:document.getElementById("set-title").value.trim(),
-    sub:document.getElementById("set-sub").value.trim(),
-    logo:document.getElementById("set-logo").value.trim(),
-    qris:document.getElementById("set-qris").value.trim(),
-    showQrisFallback:document.getElementById("set-qris-fallback").checked,
-    footer:document.getElementById("set-footer").value.trim()
-  },{merge:true}); toast("Tersimpan ✓");
+window.saveSettings = async () => {
+  await setDoc(doc(db, 'merchants', uid, 'settings', 'main'), {
+    title: document.getElementById('set-title').value.trim(),
+    sub: document.getElementById('set-sub').value.trim(),
+    logo: document.getElementById('set-logo').value.trim(),
+    qris: document.getElementById('set-qris').value.trim(),
+    showQrisFallback: document.getElementById('set-qris-fallback').checked,
+    footer: document.getElementById('set-footer').value.trim()
+  }, { merge: true });
+  toast('Tersimpan ✓');
 };
-function loadItems(){
-  onSnapshot(collection(db,"merchants",uid,"items"),snap=>{
-    const items=[]; snap.forEach(s=>items.push({id:s.id,...s.data()}));
-    document.getElementById("item-list").innerHTML=items.length?items.map(it=>{
-      const link=`checkout.html?merchant=${uid}&id=${it.id}`;
+
+function loadItems() {
+  onSnapshot(collection(db, 'merchants', uid, 'items'), snap => {
+    const items = [];
+    snap.forEach(s => items.push({ id: s.id, ...s.data() }));
+    document.getElementById('item-list').innerHTML = items.length ? items.map(it => {
+      const link = `checkout.html?merchant=${uid}&id=${it.id}`;
       return `<div class="item-row"><div class="grow"><b>${esc(it.name)}</b>
-        <small>Rp ${Number(it.price||0).toLocaleString("id-ID")}${it.fee?" + fee "+Number(it.fee).toLocaleString("id-ID"):""}</small>
+        <small>Rp ${Number(it.price||0).toLocaleString('id-ID')}${it.fee?' + fee '+Number(it.fee).toLocaleString('id-ID'):''}</small>
         <br><a style="color:var(--accent);font-size:.8rem;word-break:break-all" target="_blank" href="${link}">${link}</a></div>
         <button class="red sm" onclick="deleteItem('${it.id}')">🗑</button></div>`;
-    }).join(""):'<p style="color:var(--muted);font-size:.85rem">Belum ada item.</p>';
+    }).join('') : '<p style="color:var(--muted);font-size:.85rem">Belum ada item.</p>';
   });
 }
-window.saveItem=async()=>{
-  const name=document.getElementById("it-name").value.trim();
-  const price=Number(document.getElementById("it-price").value||0);
-  const fee=Number(document.getElementById("it-fee").value||0);
-  if(!name||!price){ alert("Nama & harga wajib"); return; }
-  await addDoc(collection(db,"merchants",uid,"items"),{name,price,fee,createdAt:new Date().toISOString()});
-  document.getElementById("it-name").value=""; document.getElementById("it-price").value=""; document.getElementById("it-fee").value="";
-  toast("Item ditambah ✓");
+window.saveItem = async () => {
+  const name = document.getElementById('it-name').value.trim();
+  const price = Number(document.getElementById('it-price').value || 0);
+  const fee = Number(document.getElementById('it-fee').value || 0);
+  if (!name || !price) { alert('Nama & harga wajib'); return; }
+  await addDoc(collection(db, 'merchants', uid, 'items'), { name, price, fee, createdAt: new Date().toISOString() });
+  document.getElementById('it-name').value = '';
+  document.getElementById('it-price').value = '';
+  document.getElementById('it-fee').value = '';
+  toast('Item ditambah ✓');
 };
-window.deleteItem=async id=>{ if(confirm("Hapus?")) await deleteDoc(doc(db,"merchants",uid,"items",id)); };
+window.deleteItem = async id => { if (confirm('Hapus?')) await deleteDoc(doc(db, 'merchants', uid, 'items', id)); };
+
+// STEJ Tools tab
+window.stejObfuscateUI = () => {
+  const key = getStejKey();
+  const text = document.getElementById('stej-input').value;
+  if (!key) return alert('Isi STEJ key di atas');
+  if (!text) return alert('Isi teks');
+  try {
+    document.getElementById('stej-output').value = STEJ.obfuscate(text, key);
+  } catch (e) {
+    document.getElementById('stej-output').value = 'Error: ' + e.message;
+  }
+};
+window.stejDeobfuscateUI = () => {
+  const key = getStejKey();
+  const text = document.getElementById('stej-input').value.trim();
+  if (!key) return alert('Isi STEJ key di atas');
+  if (!text) return alert('Isi payload');
+  try {
+    document.getElementById('stej-output').value = STEJ.deobfuscate(text, key);
+  } catch (e) {
+    document.getElementById('stej-output').value = 'Error: ' + e.message;
+  }
+};
+window.stejOpenTools = () => {
+  window.open('https://stejproject.github.io/taskbar/keamanan.html', '_blank');
+};
 </script>
 </body>
 </html>

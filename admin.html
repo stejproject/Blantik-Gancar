@@ -119,7 +119,7 @@ img.proof { max-width:90px; border-radius:6px; cursor:pointer; }
         <input id="gp-holder" placeholder="Nama di akun GoPay">
         <label>Deep Link (opsional)</label>
         <input id="gp-deeplink" placeholder="kosong = gojek:// saja">
-        <p class="hint">Jika STEJ aktif, nomor/nama disimpan ter-obfuscate di Firestore. Checkout publik butuh deobfuscate di sisi yang punya kunci, atau simpan versi plain terpisah untuk display publik.</p>
+        <p class="hint">Jika STEJ aktif: nomor/nama HANYA disimpan sebagai numberObf + stejCheckoutKey. Checkout akan otomatis deobfuscate sebelum tombol Salin bekerja.</p>
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="saveGopay()">💾 Simpan GoPay</button>
           <button class="gray" onclick="clearDeepLink()">Kosongkan deep link</button>
@@ -380,16 +380,17 @@ window.saveGopay = async () => {
     const key = getStejKey();
     if (!key) { alert('STEJ key wajib jika obfuscate aktif. Isi di kotak ungu di atas.'); return; }
     try {
-      // Salinan ter-obfuscate (untuk audit / backup di admin)
+      // Nomor & nama HANYA dalam bentuk obfuscate
       payload.gopay.numberObf = STEJ.obfuscate(number, key);
       payload.gopay.holderObf = holder ? STEJ.obfuscate(holder, key) : '';
       payload.gopay.stejProtected = true;
-      // Tetap simpan plain untuk checkout publik (pembeli harus bisa transfer)
-      // numberPublic = salinan untuk checkout; number juga diisi biar kompatibel
-      payload.gopay.number = number;
-      payload.gopay.holder = holder;
-      payload.gopay.numberPublic = number;
-      payload.gopay.holderPublic = holder;
+      // Kunci yang sama dipakai checkout untuk deobfuscate (wajib sama)
+      payload.gopay.stejCheckoutKey = key;
+      // Plain dikosongkan — checkout wajib deobfuscate
+      payload.gopay.number = '';
+      payload.gopay.holder = '';
+      payload.gopay.numberPublic = '';
+      payload.gopay.holderPublic = '';
     } catch (e) {
       alert('STEJ obfuscate gagal: ' + e.message);
       return;
@@ -401,6 +402,8 @@ window.saveGopay = async () => {
     payload.gopay.holderPublic = holder;
     payload.gopay.numberObf = '';
     payload.gopay.holderObf = '';
+    payload.gopay.stejProtected = false;
+    payload.gopay.stejCheckoutKey = '';
   }
 
   await setDoc(doc(db, 'merchants', uid, 'settings', 'main'), payload, { merge: true });

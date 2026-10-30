@@ -82,7 +82,7 @@ footer { text-align:center; color:#475569; font-size:.72rem; margin-top:24px; }
       </div>
       <p class="hint">
         Nomor <b>tidak ditampilkan</b> di layar.<br>
-        Ketuk <b>Salin</b> (wajib berhasil) → buka app → Transfer → tempel nomor → isi nominal → bayar → upload bukti.
+        Ketuk <b>Salin</b> → buka app → Transfer → tempel nomor → isi nominal → bayar → upload bukti.
       </p>
     </div>
     <div id="qris-block" style="display:none">
@@ -161,7 +161,6 @@ function flashBtn(btn, okText) {
   btn.textContent = okText;
   setTimeout(() => { btn.textContent = label; }, 2000);
 }
-/** Jangan pakai deep link transfer?phone= (sering ditolak Gojek) */
 function safeScheme(preferred, fallback) {
   const d = (preferred || "").trim();
   if (!d) return fallback;
@@ -175,6 +174,22 @@ function openApp(fallbackScheme, btn) {
     .then(() => flashBtn(btn, "✓ Disalin..."))
     .catch(() => flashBtn(btn, "Gagal salin"))
     .finally(() => { window.location.href = target; });
+}
+
+/**
+ * Ambil nomor GoPay untuk customer.
+ * Prioritas:
+ * 1. g.number (plain) — wajib untuk checkout publik
+ * 2. g.numberPublic — field khusus display publik (jika admin STEJ-protect internal copy)
+ * Tidak pernah coba deobfuscate numberObf di sisi customer (tidak ada key, dan tidak aman).
+ */
+function resolveGopayPublic(g) {
+  g = g || {};
+  const number = String(g.number || g.numberPublic || "").trim();
+  const holder = String(g.holder || g.holderPublic || "").trim();
+  const active = g.active !== false && !!number;
+  const stejOnly = !!(g.stejProtected && g.numberObf && !number);
+  return { number, holder, active, stejOnly };
 }
 
 if (!merchantId) {
@@ -220,19 +235,28 @@ function applySettings() {
   if (settings.footer) document.getElementById("page-footer").textContent = settings.footer;
 
   const g = settings.gopay || {};
-  const gopayOk = g.active !== false && !!g.number;
+  const resolved = resolveGopayPublic(g);
   const gpBlock = document.getElementById("gopay-block");
   const qrisBlock = document.getElementById("qris-block");
-  const showQris = !!(settings.qris && (settings.showQrisFallback || !gopayOk));
+  const showQris = !!(settings.qris && (settings.showQrisFallback || !resolved.active));
+
   if (showQris) {
     document.getElementById("qris-img").src = settings.qris;
     qrisBlock.style.display = "block";
   } else qrisBlock.style.display = "none";
 
-  if (gopayOk) {
+  const notice = document.getElementById("notice-offline");
+
+  if (resolved.stejOnly) {
+    // Admin menyimpan HANYA numberObf tanpa plain/public → checkout tidak bisa salin nomor
+    gpBlock.style.display = "none";
+    gopayNumber = "";
+    notice.textContent = "⚠️ Nomor GoPay dilindungi STEJ tanpa salinan publik. Admin perlu menyimpan nomor plain/public agar pembeli bisa transfer.";
+    notice.style.display = "block";
+  } else if (resolved.active) {
     gpBlock.style.display = "block";
-    gopayNumber = String(g.number).trim();
-    document.getElementById("gp-holder").textContent = "a.n. " + (g.holder || "—");
+    gopayNumber = resolved.number;
+    document.getElementById("gp-holder").textContent = "a.n. " + (resolved.holder || "—");
     document.getElementById("btn-copy").onclick = () => {
       copyNumber()
         .then(() => flashBtn(document.getElementById("btn-copy"), "✓ Nomor disalin"))
@@ -240,16 +264,15 @@ function applySettings() {
     };
     document.getElementById("btn-gojek").onclick = function () { openApp("gojek://", this); };
     document.getElementById("btn-gopay").onclick = function () { openApp("gojek://gopay", this); };
+    notice.style.display = "none";
   } else {
     gpBlock.style.display = "none";
     gopayNumber = "";
+    if (!settings.qris) {
+      notice.textContent = "⚠️ Belum ada metode pembayaran aktif.";
+      notice.style.display = "block";
+    } else notice.style.display = "none";
   }
-
-  const notice = document.getElementById("notice-offline");
-  if (!gopayOk && !settings.qris) {
-    notice.textContent = "⚠️ Belum ada metode pembayaran aktif.";
-    notice.style.display = "block";
-  } else notice.style.display = "none";
   maybeEnable();
 }
 function maybeEnable() {
